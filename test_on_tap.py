@@ -170,7 +170,7 @@ def main(
     assert(image_size[0] % 32 == 0)
     assert(image_size[1] % 32 == 0)
     
-    ## autogen a descriptive name
+    # autogen a descriptive name
     model_name = "%d_%d" % (B,S)
     model_name += "_i%d" % (iters)
     model_name += "_%s" % exp_name
@@ -194,21 +194,7 @@ def main(
     model = Pips(stride=stride).to(device)
     model = torch.nn.DataParallel(model, device_ids=device_ids)
 
-    from prettytable import PrettyTable
-    def count_parameters(model):
-        table = PrettyTable(["Modules", "Parameters"])
-        total_params = 0
-        for name, parameter in model.named_parameters():
-            if not parameter.requires_grad:
-                continue
-            param = parameter.numel()
-            if param > 100000:
-                table.add_row([name, param])
-            total_params+=param
-        print(table)
-        print('total params: %.2f M' % (total_params/1000000.0))
-        return total_params
-    count_parameters(model)
+    utils.misc.count_parameters(model)
 
     _ = saverloader.load(init_dir, model.module)
     model.eval()
@@ -249,6 +235,5 @@ def main(
             
     writer_x.close()
             
-
 if __name__ == '__main__':
     Fire(main)
