@@ -2,82 +2,25 @@ import torch
 import numpy as np
 import math
 
-def get_1d_embedding(x, C, cat_coords=False):
-    B, N, D = x.shape
-    assert(D==1)
-
-    div_term = (torch.arange(0, C, 2, device=x.device, dtype=torch.float32) * (10000.0 / C)).reshape(1, 1, int(C/2))
-    
-    pe_x = torch.zeros(B, N, C, device=x.device, dtype=torch.float32)
-    
-    pe_x[:, :, 0::2] = torch.sin(x * div_term)
-    pe_x[:, :, 1::2] = torch.cos(x * div_term)
-    
-    if cat_coords:
-        pe_x = torch.cat([pe, x], dim=2) # B,N,C*2+2
-    return pe_x
-
-def posemb_sincos_2d(h, w, dim, temperature=10000, dtype=torch.float32, device='cuda:0'):
-
-    y, x = torch.meshgrid(torch.arange(h, device = device), torch.arange(w, device = device), indexing = 'ij')
-    assert (dim % 4) == 0, 'feature dimension must be multiple of 4 for sincos emb'
-    omega = torch.arange(dim // 4, device = device) / (dim // 4 - 1)
+def posemb_sincos_2d_xy(xy, C, temperature=10000, dtype=torch.float32, cat_coords=False):
+    device = xy.device
+    dtype = xy.dtype
+    B, S, D = xy.shape
+    assert(D==2)
+    x = xy[:,:,0]
+    y = xy[:,:,1]
+    assert (C % 4) == 0, 'feature dimension must be multiple of 4 for sincos emb'
+    omega = torch.arange(C // 4, device=device) / (C // 4 - 1)
     omega = 1. / (temperature ** omega)
 
     y = y.flatten()[:, None] * omega[None, :]
     x = x.flatten()[:, None] * omega[None, :] 
-    pe = torch.cat((x.sin(), x.cos(), y.sin(), y.cos()), dim=1) # B,C,H,W
-    return pe.type(dtype)
-
-def get_2d_embedding(xy, C, cat_coords=False):
-    B, N, D = xy.shape
-    assert(D==2)
-
-    x = xy[:,:,0:1]
-    y = xy[:,:,1:2]
-    div_term = (torch.arange(0, C, 2, device=xy.device, dtype=torch.float32) * (10000.0 / C)).reshape(1, 1, int(C/2))
-    
-    pe_x = torch.zeros(B, N, C, device=xy.device, dtype=torch.float32)
-    pe_y = torch.zeros(B, N, C, device=xy.device, dtype=torch.float32)
-    
-    pe_x[:, :, 0::2] = torch.sin(x * div_term)
-    pe_x[:, :, 1::2] = torch.cos(x * div_term)
-    
-    pe_y[:, :, 0::2] = torch.sin(y * div_term)
-    pe_y[:, :, 1::2] = torch.cos(y * div_term)
-    
-    pe = torch.cat([pe_x, pe_y], dim=2) # B,N,C*2
+    pe = torch.cat((x.sin(), x.cos(), y.sin(), y.cos()), dim=1) 
+    pe = pe.reshape(B,S,C).type(dtype)
     if cat_coords:
-        pe = torch.cat([pe, xy], dim=2) # B,N,C*2+2
+        pe = torch.cat([pe, xy], dim=2) # B,N,C+2
     return pe
 
-def get_3d_embedding(xyz, C, cat_coords=False):
-    B, N, D = xyz.shape
-    assert(D==3)
-
-    x = xyz[:,:,0:1]
-    y = xyz[:,:,1:2]
-    z = xyz[:,:,2:3]
-    div_term = (torch.arange(0, C, 2, device=xyz.device, dtype=torch.float32) * (10000.0 / C)).reshape(1, 1, int(C/2))
-    
-    pe_x = torch.zeros(B, N, C, device=xyz.device, dtype=torch.float32)
-    pe_y = torch.zeros(B, N, C, device=xyz.device, dtype=torch.float32)
-    pe_z = torch.zeros(B, N, C, device=xyz.device, dtype=torch.float32)
-    
-    pe_x[:, :, 0::2] = torch.sin(x * div_term)
-    pe_x[:, :, 1::2] = torch.cos(x * div_term)
-    
-    pe_y[:, :, 0::2] = torch.sin(y * div_term)
-    pe_y[:, :, 1::2] = torch.cos(y * div_term)
-    
-    pe_z[:, :, 0::2] = torch.sin(z * div_term)
-    pe_z[:, :, 1::2] = torch.cos(z * div_term)
-    
-    pe = torch.cat([pe_x, pe_y, pe_z], dim=2) # B, N, C*3
-    if cat_coords:
-        pe = torch.cat([pe, xyz], dim=2) # B, N, C*3+3
-    return pe
-    
 class SimplePool():
     def __init__(self, pool_size, version='pt'):
         self.pool_size = pool_size
