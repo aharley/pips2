@@ -42,9 +42,7 @@ python export_mp4_dataset.py
 
 This will produce a dataset of clips, in `pod_export/$VERSION_$SEQLEN`. The script will also produce some temporary folders to help write the data; these can be safely deleted afterwards. The script should also be safe to run in multiple threads in parallel. Depending on disk speeds, writing the full dataset with 4 threads should take about 24h.
 
-The clips will be produced in random order. The script is fairly friendly to multiple parallel runs, and avoids re-writing mp4s that have already been produced.
-
-Sometimes sampling from PointOdyssey will fail. This is OK. The script will report the reason for the failure (e.g., no valid tracks after applying augmentations), and move on to the next sample. Output should look like this: 
+The script output should look something like this: 
 ```
 .36_A_em00_aa_110247; step 000676/153264; this_step 018524; itime 3.77
 .36_A_em00_aa_110247; step 000677/153264; this_step 017116; itime 2.74
@@ -58,7 +56,9 @@ N=0
 .36_A_em00_aa_110247; step 000686/153264; this_step 034423; itime 6.91
 ```
 
-As soon as you have a few clips, you can start training. The trainer will load the data using `dataset/exportdataset.py`.
+Note that the clips are produced in random order. The script is fairly friendly to multiple parallel runs, and avoids re-writing mp4s that have already been produced. Sometimes sampling from PointOdyssey will fail, and the script will report the reason for the failure (e.g., no valid tracks after applying augmentations).
+
+As soon as you have a few exported clips, you can start playing with the trainer. The trainer will load the exported data using `dataset/exportdataset.py`.
 
 
 ## Training
@@ -105,13 +105,25 @@ total params: 17.57 M
 [...]
  ```
 
-The final items, `d_t` and d_v` show the result of the `d_avg` metric on the training set and the validation set. Note that `d_v` will show `nan` until the first validation step.
+The final items in each line, `d_t` and d_v`, show the result of the `d_avg` metric on the training set and the validation set. Note that `d_v` will show `nan` until the first validation step.
 
-To reproduce the reference model, you should train for about 200k iterations with `B=4, S=36, crop_size=(256,384)`. Then, fine-tune for about 10k iterations with `B=1, S=64, crop_size=(512,896)`. If you can afford a higher batch size, you should use it. For this high-resolution finetuning, you can either export new mp4s, or use `pointodysseydataset.py` directly. 
+To reproduce the reference model, you should train for about 200k iterations (using the fully-exported dataset), with `B=4, S=36, crop_size=(256,384)`. Then, fine-tune for about 10k iterations at higher resolution and longer clips: `B=1, S=64, crop_size=(512,896)`. If you can afford a higher batch size, you should use it. For this high-resolution finetuning, you can either export new mp4s, or use `pointodysseydataset.py` directly. 
 
 
 ## Testing
 
-...
+We provide evaluation scripts for all of the datasets reported in the paper.
 
+*TAP-VID-DAVIS*: For each point with a valid annotation in frame0, we track it to the end of the video (<200 frames). The data comes from the [DeepMind TAP-NET repo](https://github.com/google-deepmind/tapnet#tap-vid-benchmark). 
 
+`test_on_tap.py`. With the reference model, this should yield `d_avg 70.4; survival_16 90.5; median_l2 5.0`.
+
+*CroHD*: We chop the videos in to 1000-frame clips, and track heads from the beginning to the end. The data comes from the "Get all data" link on the [Head Tracking 21 MOT Challenge](https://motchallenge.net/data/Head_Tracking_21/) page. Downloading and unzipping that should give you the folders HT21 and HT21Labels, which our dataloader relies on.
+
+`test_on_cro.py`. With the reference model, this should yield `d_avg 42.4; survival_16 55.3; median_l2 16.1`. 
+
+*PointOdyssey*: For each point with a valid annotation in frame0, we track it to the end of the video (~2k frames). Note that here we use the `pointodysseydataset_fullseq.py` dataloader, and we load `S=128` frames at a time, because 2k frames will not fit in memory. 
+
+`test_on_pod.py`. With the reference model, this should yield `d_avg 30.9; survival_16 31.7; median_l2 33.5`.
+
+Note that these values are slightly different than in the PDF, largely because we fixed some bugs and re-trained the model for this release.
