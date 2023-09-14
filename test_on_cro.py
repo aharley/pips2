@@ -140,7 +140,7 @@ def test_on_fullseq(model, d, sw, iters=8, S_max=8, image_size=(384,512)):
     d_avg = d_sum / len(thrs)
     metrics['d_avg'] = d_avg
 
-    sur_thr = 50
+    sur_thr = 16
     dists = torch.norm(trajs_e/sc_pt - trajs_g/sc_pt, dim=-1) # B,S,N
     dist_ok = 1 - (dists > sur_thr).float() * valids # B,S,N
     survival = torch.cumprod(dist_ok, dim=1) # B,S,N
@@ -183,6 +183,7 @@ def main(
 
     exp_name = 'cro00' # copy from dev repo
     exp_name = 'cro01' # clean up
+    exp_name = 'cro02' # survival thr 16
 
     assert(B==1) # B>1 not implemented here
     assert(image_size[0] % 32 == 0)
