@@ -1,6 +1,6 @@
 # Long-Term Point Tracking with PIPs++
 
-This is the official code release for the models in our ICCV 2023 paper, "PointOdyssey: A Large-Scale Synthetic Dataset for Long-Term Point Tracking".
+This is the official code release for the PIPs++ model presented in our ICCV 2023 paper, "PointOdyssey: A Large-Scale Synthetic Dataset for Long-Term Point Tracking".
 **[[Paper](https://arxiv.org/abs/2307.15055)] [[Project Page](https://pointodyssey.com/)]**
 
 <img src='https://pointodyssey.com/assets/point_tracks.jpg'>
