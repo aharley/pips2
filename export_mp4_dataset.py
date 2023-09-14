@@ -16,9 +16,9 @@ import os
 from PIL import Image
 from torch.utils.data import Dataset, DataLoader
 
-random.seed(125)
-np.random.seed(125)
-torch.manual_seed(125)
+# random.seed(125)
+# np.random.seed(125)
+# torch.manual_seed(125)
 
 def run_model(d, exp_out_dir, device, mname, export=True, sw=None):
     metrics = {}
