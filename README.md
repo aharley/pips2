@@ -1,5 +1,16 @@
 
 
+## Model
+
+To download our reference model, run this line:
+
+```
+sh get_reference_model.sh
+```
+
+Or, use the dropbox link inside that file. 
+
+
 ## Requirements
 
 The lines below should set up a fresh environment with everything you need: 
