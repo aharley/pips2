@@ -1,28 +1,20 @@
 import time
 import numpy as np
-import timeit
 import saverloader
 from nets.pips2 import Pips
 import utils.improc
-import utils.geom
 import utils.misc
 import random
 from utils.basic import print_, print_stats
 from datasets.tapviddataset_fullseq import TapVidDavis
 import torch
-import torch.nn as nn
 from tensorboardX import SummaryWriter
 import torch.nn.functional as F
 from fire import Fire
-import sys
-from torch import nn, einsum
-from einops import rearrange, repeat
-from einops.layers.torch import Rearrange, Reduce
 from torch.utils.data import Dataset, DataLoader
 
 def create_pools(n_pool=1000):
     pools = {}
-
     pool_names = [
         'd1',
         'd2',
@@ -39,7 +31,6 @@ def create_pools(n_pool=1000):
     ]
     for pool_name in pool_names:
         pools[pool_name] = utils.misc.SimplePool(n_pool, version='np')
-    
     return pools
 
 def test_on_fullseq(model, d, sw, iters=8, S_max=8, image_size=(384,512)):
@@ -89,7 +80,7 @@ def test_on_fullseq(model, d, sw, iters=8, S_max=8, image_size=(384,512)):
         preds, preds_anim, feat_init, _ = model(traj_seq, rgb_seq, iters=iters, feat_init=feat_init)
 
         trajs_e[:, cur_frame:end_frame] = preds[-1][:, :S_local]
-        trajs_e[:, end_frame:] = trajs_e[:, end_frame-1:end_frame] # update the future
+        trajs_e[:, end_frame:] = trajs_e[:, end_frame-1:end_frame] # update the future with new zero-vel
 
         if sw is not None and sw.save_this:
             traj_seq_e = preds[-1]
@@ -132,7 +123,7 @@ def test_on_fullseq(model, d, sw, iters=8, S_max=8, image_size=(384,512)):
     survival = torch.cumprod(dist_ok, dim=1) # B,S,N
     metrics['survival'] = torch.mean(survival).item()
 
-    # get the median error for each trajectory
+    # get the median l2 error for each trajectory
     dists_ = dists.permute(0,2,1).reshape(B*N,S)
     valids_ = valids.permute(0,2,1).reshape(B*N,S)
     median_l2 = utils.basic.reduce_masked_median(dists_, valids_, keep_batch=True)
@@ -142,6 +133,7 @@ def test_on_fullseq(model, d, sw, iters=8, S_max=8, image_size=(384,512)):
         prep_rgbs = utils.improc.preprocess_color(rgbs)
         rgb0 = sw.summ_traj2ds_on_rgb('', trajs_g[0:1], prep_rgbs[0:1,0], valids=valids[0:1], cmap='winter', linewidth=2, only_return=True)
         sw.summ_traj2ds_on_rgb('2_outputs/trajs_e_on_rgb0', trajs_e[0:1], utils.improc.preprocess_color(rgb0), valids=valids[0:1], cmap='spring', linewidth=2, frame_id=d_avg*100.0)
+        sw.summ_traj2ds_on_rgbs2('2_outputs/trajs_e_on_rgbs2', trajs_e[0:1,::4], valids[0:1,::4], prep_rgbs[0:1,::4], valids=valids[0:1,::4], frame_ids=list(range(0,S,4)))
 
     return metrics
 
@@ -171,6 +163,8 @@ def main(
     exp_name = 'tt01' # clean up
     exp_name = 'tt02' # clean the net
     exp_name = 'tt03' # median within each seq; print it too
+    exp_name = 'tt04' # vis :4
+    exp_name = 'tt05' # refmodel
 
     assert(B==1) # B>1 not implemented here
     assert(image_size[0] % 32 == 0)
