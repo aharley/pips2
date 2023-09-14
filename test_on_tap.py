@@ -71,30 +71,10 @@ def test_on_fullseq(model, d, sw, iters=8, S_max=8, image_size=(384,512)):
     rgbs = rgbs_.reshape(B, S, 3, H_, W_)
     trajs_g[:,:,:,0] *= sx
     trajs_g[:,:,:,1] *= sy
-    # print_stats('trajs_g', trajs_g)
     H, W = H_, W_
-    # print('rgbs', rgbs.shape)
     
-
-    # xy0 = trajs_g[:, 0] # B,N,2
-    # print_('xy0', xy0)
-
-    # trajs_e = torch.zeros_like(trajs_g)
-    # trajs_e[:, 0] = trajs_g[:, 0]
-
-    # trajs_e = trajs_g[:, 0].repeat(1,S,1,1)
-
-    # full random
-    x = torch.from_numpy(np.random.uniform(0, W-1, (B,S,N))).float().to(trajs_g.device)
-    y = torch.from_numpy(np.random.uniform(0, H-1, (B,S,N))).float().to(trajs_g.device)
-    trajs_e = torch.stack([x,y], dim=-1) # B,S,N,2
-
-    # trajs_e = (trajs_e + trajs_g[:,0])/2.0
-    
-    # trajs_e[:,0] = trajs_g[:, 0]
-    trajs_e[:,:] = trajs_g[:, 0]
-
-    # S_max = S
+    # zero-vel init
+    trajs_e = trajs_g[:,0].repeat(1,S,1,1)
     
     cur_frame = 0
     done = False
@@ -106,41 +86,19 @@ def test_on_fullseq(model, d, sw, iters=8, S_max=8, image_size=(384,512)):
             diff = end_frame-S
             end_frame = end_frame-diff
             cur_frame = max(cur_frame-diff,0)
-
-        # print('cur_frame', cur_frame)
-        # print('end_frame', end_frame)
+        # print('working on subseq %d:%d' % (cur_frame, end_frame))
 
         traj_seq = trajs_e[:, cur_frame:end_frame]
         rgb_seq = rgbs[:, cur_frame:end_frame]
         S_local = rgb_seq.shape[1]
 
-        traj_seq = traj_seq[:,0:1].repeat(1,S_local,1,1)
-
         if feat_init is not None:
             feat_init = [fi[:,:S_local] for fi in feat_init]
-        
-        # print('traj_seq', traj_seq.shape)
-        # print('rgb_seq', rgb_seq.shape)
-        
-        # # print('S_local', S_local)
-        # traj_seq = torch.cat([traj_seq, traj_seq[:, -1].unsqueeze(1).repeat(1, S_max - S_local, 1, 1)], dim=1)
-        # rgb_seq = torch.cat([rgb_seq, rgb_seq[:, -1].unsqueeze(1).repeat(1, S_max - S_local, 1, 1, 1)], dim=1)
-        # # print('rgb_seq (%d:%d)' % (cur_frame, end_frame), rgb_seq.shape)
-
-        # iters_here = max(S_max//4, 8)
-        # print('iters_here', iters_here)
-        outs = model(traj_seq, rgb_seq, iters=iters, feat_init=feat_init, return_feat=True)#, delta_mult=.9)
-        # outs = model(traj_seq, rgb_seq, iters=iters_here, feat_init=feat_init, return_feat=True)
-        # outs = model(traj_seq, rgb_seq, iters=iters, feat_init=feat_init, return_feat=True)
-        # outs = model(traj_seq, rgb_seq, iters=16, feat_init=feat_init, return_feat=True)
-        preds = outs[0]
-        preds_anim = outs[1]
-        feat_init = outs[2]
+            
+        preds, preds_anim, feat_init, _ = model(traj_seq, rgb_seq, iters=iters, feat_init=feat_init)
 
         trajs_e[:, cur_frame:end_frame] = preds[-1][:, :S_local]
-
-        # trajs_e[:, end_frame:end_frame+1] = trajs_e[:, end_frame-1:end_frame]
-        trajs_e[:, end_frame:] = trajs_e[:, end_frame-1:end_frame]
+        trajs_e[:, end_frame:] = trajs_e[:, end_frame-1:end_frame] # update the future
 
         if sw is not None and sw.save_this:
             traj_seq_e = preds[-1]
@@ -156,9 +114,6 @@ def test_on_fullseq(model, d, sw, iters=8, S_max=8, image_size=(384,512)):
                 ate_all = utils.basic.reduce_masked_mean(ate, valid_seq, dim=[1,2]) # B
                 rgb_vis.append(sw.summ_traj2ds_on_rgb('', tre[0:1], gt_rgb, valids=valid_seq, only_return=True, cmap='spring', frame_id=ate_all[0]))
             sw.summ_rgbs('3_test/animated_trajs_on_rgb_cur%02d' % cur_frame, rgb_vis)
-        
-        # # tile this out 
-        # trajs_e[:, end_frame:] = trajs_e[:, end_frame-1:end_frame]
         
         if end_frame >= S:
             done = True
@@ -762,6 +717,7 @@ def main(
     
     exp_name = 'tt00' # copy from dev repo
     exp_name = 'tt01' # clean up
+    exp_name = 'tt02' # clean the net
 
     assert(image_size[0] % 32 == 0)
     assert(image_size[1] % 32 == 0)
