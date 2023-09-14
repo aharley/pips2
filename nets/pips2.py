@@ -500,7 +500,7 @@ class Pips(nn.Module):
             fcorrs4 = fcorr_fn4.sample(coords) # B,S,N,LRR
             LRR = fcorrs1.shape[3]
 
-            # i want everything in the format B*N, S, C
+            # we want everything in the format B*N, S, C
             fcorrs1_ = fcorrs1.permute(0, 2, 1, 3).reshape(B*N, S, LRR)
             fcorrs2_ = fcorrs2.permute(0, 2, 1, 3).reshape(B*N, S, LRR)
             fcorrs4_ = fcorrs4.permute(0, 2, 1, 3).reshape(B*N, S, LRR)
