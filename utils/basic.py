@@ -127,8 +127,8 @@ def reduce_masked_median(x, mask, keep_batch=False):
     prod = x*mask
 
     B = list(x.shape)[0]
-    x = x.cpu().numpy()
-    mask = mask.cpu().numpy()
+    x = x.detach().cpu().numpy()
+    mask = mask.detach().cpu().numpy()
 
     if keep_batch:
         x = np.reshape(x, [B, -1])
