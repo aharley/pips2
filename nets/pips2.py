@@ -506,7 +506,7 @@ class Pips(nn.Module):
             fcorrs4_ = fcorrs4.permute(0, 2, 1, 3).reshape(B*N, S, LRR)
             fcorrs_ = torch.cat([fcorrs1_, fcorrs2_, fcorrs4_], dim=2)
             flows_ = (coords[:,1:] - coords[:,:-1]).permute(0,2,1,3).reshape(B*N, S-1, 2)
-            flows_ = torch.cat([flows_, flows_[:,0:1]], dim=1)
+            flows_ = torch.cat([flows_, flows_[:,-1:]], dim=1) # B*N,S,2
 
             delta_coords_ = self.delta_block(fcorrs_, flows_) # B*N,S,2
 
