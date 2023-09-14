@@ -1,6 +1,21 @@
 import torch
 import numpy as np
 import math
+from prettytable import PrettyTable
+
+def count_parameters(model):
+    table = PrettyTable(["Modules", "Parameters"])
+    total_params = 0
+    for name, parameter in model.named_parameters():
+        if not parameter.requires_grad:
+            continue
+        param = parameter.numel()
+        if param > 100000:
+            table.add_row([name, param])
+        total_params+=param
+    print(table)
+    print('total params: %.2f M' % (total_params/1000000.0))
+    return total_params
 
 def posemb_sincos_2d_xy(xy, C, temperature=10000, dtype=torch.float32, cat_coords=False):
     device = xy.device
