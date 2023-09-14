@@ -46,14 +46,24 @@ def test_on_fullseq(model, d, sw, iters=8, S_max=8, image_size=(384,512)):
     assert(D==2)
     assert(B==1)
     print('this video is %d frames long' % S)
-    
-    H_bak, W_bak = 540, 960
+
+    # load one to check H,W
+    rgb_path0 = os.path.join(seq, 'rgbs', 'rgb_%05d.jpg' % (0))
+    rgb0_bak = cv2.imread(rgb_path0)
+    H_bak, W_bak = rgb0_bak.shape[:2]
     H, W = image_size
     sy = H/H_bak
     sx = W/W_bak
     trajs_g[:,:,:,0] *= sx
     trajs_g[:,:,:,1] *= sy
+    rgb0_bak = cv2.resize(rgb0_bak, (W, H), interpolation=cv2.INTER_LINEAR)
+    rgb0_bak = torch.from_numpy(rgb0_bak[:,:,::-1].copy()).permute(2,0,1) # 3,H,W
+    rgb0_bak = rgb0_bak.unsqueeze(0).to(trajs_g.device) # 1,3,H,W
 
+    if sw is not None and sw.save_this:
+        prep_rgb0 = utils.improc.preprocess_color(rgb0_bak)
+        sw.summ_traj2ds_on_rgb('0_inputs/trajs_g_on_rgb0', trajs_g[0:1], prep_rgb0, valids=valids[0:1], cmap='winter', linewidth=1)
+        
     # zero-vel init
     trajs_e = trajs_g[:,0].repeat(1,S,1,1)
     
@@ -137,11 +147,8 @@ def test_on_fullseq(model, d, sw, iters=8, S_max=8, image_size=(384,512)):
     metrics['median_l2'] = median_l2.mean().item()
 
     if sw is not None and sw.save_this:
-        prep_rgbs = utils.improc.preprocess_color(rgbs)
-        rgb0 = sw.summ_traj2ds_on_rgb('', trajs_g[0:1], prep_rgbs[0:1,0], valids=valids[0:1], cmap='winter', linewidth=2, only_return=True)
+        rgb0 = sw.summ_traj2ds_on_rgb('', trajs_g[0:1], prep_rgb0, valids=valids[0:1], cmap='winter', linewidth=2, only_return=True)
         sw.summ_traj2ds_on_rgb('2_outputs/trajs_e_on_rgb0', trajs_e[0:1], utils.improc.preprocess_color(rgb0), valids=valids[0:1], cmap='spring', linewidth=2, frame_id=d_avg)
-        st = 16
-        sw.summ_traj2ds_on_rgbs2('2_outputs/trajs_e_on_rgbs2', trajs_e[0:1,::st], valids[0:1,::st], prep_rgbs[0:1,::st], valids=valids[0:1,::st], frame_ids=list(range(0,S,st)))
         
     return metrics
     
@@ -168,9 +175,9 @@ def main(
     # load a ckpt, and test it in pointodyssey,
     # tracking points from frame0 to the end.
     
-    exp_name = 'ej00' # copy from dev repo
-    exp_name = 'ej01' # pod test
-    exp_name = 'ej02' # clean up
+    exp_name = 'pod00' # copy from dev repo
+    exp_name = 'pod01' # pod test
+    exp_name = 'pod02' # clean up
 
     assert(B==1) # B>1 not implemented here
     assert(image_size[0] % 32 == 0)

@@ -159,12 +159,12 @@ def main(
     # load a ckpt, and test it in tapvid,
     # tracking points from frame0 to the end.
     
-    exp_name = 'tt00' # copy from dev repo
-    exp_name = 'tt01' # clean up
-    exp_name = 'tt02' # clean the net
-    exp_name = 'tt03' # median within each seq; print it too
-    exp_name = 'tt04' # vis :4
-    exp_name = 'tt05' # refmodel
+    exp_name = 'tap00' # copy from dev repo
+    exp_name = 'tap01' # clean up
+    exp_name = 'tap02' # clean the net
+    exp_name = 'tap03' # median within each seq; print it too
+    exp_name = 'tap04' # vis :4
+    exp_name = 'tap05' # refmodel
 
     assert(B==1) # B>1 not implemented here
     assert(image_size[0] % 32 == 0)
