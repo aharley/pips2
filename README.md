@@ -42,6 +42,21 @@ python export_mp4_dataset.py
 
 This will produce a dataset of clips, in `pod_export/$VERSION_$SEQLEN`. The script will also produce some temporary folders to help write the data; these can be safely deleted afterwards. The script should also be safe to run in multiple threads in parallel. Depending on disk speeds, writing the full dataset with 4 threads should take about 24h.
 
+The clips will be produced in random order. The script is fairly friendly to multiple parallel runs, and avoids re-writing mp4s that have already been produced.
+
+Sometimes sampling from PointOdyssey will fail. This is OK. The script will report the reason for the failure (e.g., no valid tracks after applying augmentations), and move on to the next sample. Output should look like this: 
+```
+.36_A_em00_aa_110247; step 000676/153264; this_step 018524; itime 3.77
+.36_A_em00_aa_110247; step 000677/153264; this_step 017116; itime 2.74
+.36_A_em00_aa_110247; step 000678/153264; this_step 095616; itime 6.11
+sum(~mot_ok) 276
+xN=0
+sum(~mot_ok) 2000
+N=0
+:::sum(~mot_ok) 14
+.36_A_em00_aa_110247; step 000685/153264; this_step 002960; itime 6.51
+.36_A_em00_aa_110247; step 000686/153264; this_step 034423; itime 6.91
+```
 
 As soon as you have a few clips, you can start training. The trainer will load the data using `dataset/exportdataset.py`.
 
@@ -55,7 +70,6 @@ It should first print some diagnostic information about the model and dataset. T
 ```
 model_name 4_36_128_i6_5e-4s_A_aa03_113745
 loading export...
-
 found 57867 folders in pod_export/aa_36
 +--------------------------------------------------------+------------+
 |                        Modules                         | Parameters |
