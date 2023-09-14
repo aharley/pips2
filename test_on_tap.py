@@ -133,7 +133,8 @@ def test_on_fullseq(model, d, sw, iters=8, S_max=8, image_size=(384,512)):
         prep_rgbs = utils.improc.preprocess_color(rgbs)
         rgb0 = sw.summ_traj2ds_on_rgb('', trajs_g[0:1], prep_rgbs[0:1,0], valids=valids[0:1], cmap='winter', linewidth=2, only_return=True)
         sw.summ_traj2ds_on_rgb('2_outputs/trajs_e_on_rgb0', trajs_e[0:1], utils.improc.preprocess_color(rgb0), valids=valids[0:1], cmap='spring', linewidth=2, frame_id=d_avg*100.0)
-        sw.summ_traj2ds_on_rgbs2('2_outputs/trajs_e_on_rgbs2', trajs_e[0:1,::4], valids[0:1,::4], prep_rgbs[0:1,::4], valids=valids[0:1,::4], frame_ids=list(range(0,S,4)))
+        st = 4
+        sw.summ_traj2ds_on_rgbs2('2_outputs/trajs_e_on_rgbs2', trajs_e[0:1,::st], valids[0:1,::st], prep_rgbs[0:1,::st], valids=valids[0:1,::st], frame_ids=list(range(0,S,st)))
 
     return metrics
 
