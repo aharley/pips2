@@ -94,8 +94,7 @@ def run_model(d, exp_out_dir, device, mname, export=True, sw=None):
 
 def main(
         dset='train', 
-        B=1, # batchsize
-        S=64, # seqlen
+        S=36, # seqlen
         N=128, # number of particles to export per clip
         crop_size=(256,384), 
         use_augs=True, # resizing/jittering/color/blur augs
@@ -115,13 +114,13 @@ def main(
     
     exp_name = 'em00' # copy from dev repo
     
-    mod = 'aa' # copy from dev repo; set crop_size 256x384
+    mod = 'aa' # copy from dev repo; crop_size=(256x384), S=36
 
     assert(crop_size[0] % 64 == 0)
     assert(crop_size[1] % 64 == 0)
     
     # autogen a descriptive name
-    model_name = "%d_%d" % (B, S)
+    model_name = "%d" % (S)
     if use_augs:
         model_name += "_A"
     model_name += "_%s" % exp_name
@@ -146,7 +145,7 @@ def main(
     )
     dataloader_t = DataLoader(
         dataset_t,
-        batch_size=B,
+        batch_size=1,
         shuffle=shuffle,
         num_workers=6,
         worker_init_fn=worker_init_fn,
@@ -172,7 +171,7 @@ def main(
             scalar_freq=int(log_freq/4),
             just_gif=True)
 
-        out_dir = './pod_export/%s' % (mod)
+        out_dir = './pod_export/%s_%d' % (mod, S)
         exp_out_dir = '%s/%06d' % (out_dir, this_step)
 
         npz_out_f = '%s/track.npz' % (exp_out_dir)
