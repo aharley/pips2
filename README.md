@@ -107,7 +107,7 @@ total params: 17.57 M
 
 The final items in each line, `d_t` and d_v`, show the result of the `d_avg` metric on the training set and the validation set. Note that `d_v` will show `nan` until the first validation step.
 
-To reproduce the reference model, you should train for about 200k iterations (using the fully-exported dataset), with `B=4, S=36, crop_size=(256,384)`. Then, fine-tune for about 10k iterations at higher resolution and longer clips: `B=1, S=64, crop_size=(512,896)`. If you can afford a higher batch size, you should use it. For this high-resolution finetuning, you can either export new mp4s, or use `pointodysseydataset.py` directly. 
+To reproduce the reference model, you should train for 200k iterations (using the fully-exported dataset), with `B=4, S=36, crop_size=(256,384)`. Then, fine-tune for 10k iterations using higher resolution and longer clips: `B=1, S=64, crop_size=(512,896)`. If you can afford a higher batch size, you should use it. For this high-resolution finetuning, you can either export new mp4s, or use `pointodysseydataset.py` directly. 
 
 
 ## Testing
