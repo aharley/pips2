@@ -6,12 +6,12 @@ import utils.improc
 import utils.misc
 import random
 from utils.basic import print_, print_stats
-from datasets.tapviddataset_fullseq import TapVidDavis
 import torch
 from tensorboardX import SummaryWriter
 import torch.nn.functional as F
 from fire import Fire
 from torch.utils.data import Dataset, DataLoader
+from datasets.tapviddataset_fullseq import TapVidDavis
 
 def create_pools(n_pool=1000):
     pools = {}
@@ -111,7 +111,7 @@ def test_on_fullseq(model, d, sw, iters=8, S_max=8, image_size=(384,512)):
     for thr in thrs:
         # note we exclude timestep0 from this eval
         d_ = (torch.norm(trajs_e[:,1:]/sc_pt - trajs_g[:,1:]/sc_pt, dim=-1) < thr).float() # B,S-1,N
-        d_ = utils.basic.reduce_masked_mean(d_, valids[:,1:]).item()
+        d_ = utils.basic.reduce_masked_mean(d_, valids[:,1:]).item()*100.0
         d_sum += d_
         metrics['d_%d' % thr] = d_
     d_avg = d_sum / len(thrs)
@@ -121,7 +121,7 @@ def test_on_fullseq(model, d, sw, iters=8, S_max=8, image_size=(384,512)):
     dists = torch.norm(trajs_e/sc_pt - trajs_g/sc_pt, dim=-1) # B,S,N
     dist_ok = 1 - (dists > sur_thr).float() * valids # B,S,N
     survival = torch.cumprod(dist_ok, dim=1) # B,S,N
-    metrics['survival'] = torch.mean(survival).item()
+    metrics['survival'] = torch.mean(survival).item()*100.0
 
     # get the median l2 error for each trajectory
     dists_ = dists.permute(0,2,1).reshape(B*N,S)
@@ -132,16 +132,15 @@ def test_on_fullseq(model, d, sw, iters=8, S_max=8, image_size=(384,512)):
     if sw is not None and sw.save_this:
         prep_rgbs = utils.improc.preprocess_color(rgbs)
         rgb0 = sw.summ_traj2ds_on_rgb('', trajs_g[0:1], prep_rgbs[0:1,0], valids=valids[0:1], cmap='winter', linewidth=2, only_return=True)
-        sw.summ_traj2ds_on_rgb('2_outputs/trajs_e_on_rgb0', trajs_e[0:1], utils.improc.preprocess_color(rgb0), valids=valids[0:1], cmap='spring', linewidth=2, frame_id=d_avg*100.0)
+        sw.summ_traj2ds_on_rgb('2_outputs/trajs_e_on_rgb0', trajs_e[0:1], utils.improc.preprocess_color(rgb0), valids=valids[0:1], cmap='spring', linewidth=2, frame_id=d_avg)
         st = 4
         sw.summ_traj2ds_on_rgbs2('2_outputs/trajs_e_on_rgbs2', trajs_e[0:1,::st], valids[0:1,::st], prep_rgbs[0:1,::st], valids=valids[0:1,::st], frame_ids=list(range(0,S,st)))
 
     return metrics
 
 def main(
-        exp_name='debug',
         B=1, # batchsize 
-        S=120, # seqlen
+        S=128, # seqlen
         stride=8, # spatial stride of the model 
         iters=16, # inference steps of the model
         image_size=(512,896), # input resolution
@@ -194,7 +193,6 @@ def main(
 
     model = Pips(stride=stride).to(device)
     model = torch.nn.DataParallel(model, device_ids=device_ids)
-    parameters = list(model.parameters())
 
     from prettytable import PrettyTable
     def count_parameters(model):
@@ -212,12 +210,13 @@ def main(
         return total_params
     count_parameters(model)
 
-    global_step = 0
     _ = saverloader.load(init_dir, model.module)
     model.eval()
 
     pools_x = create_pools(n_pool)
 
+    global_step = 0
+    max_iters = min(max_iters, len(dataset_x))
     while global_step < max_iters:
         global_step += 1
         iter_start_time = time.time()
@@ -246,7 +245,7 @@ def main(
         
         print('%s; step %06d/%d; rtime %.2f; itime %.2f; d_x %.1f; sur_x %.1f; med_x %.1f' % (
             model_name, global_step, max_iters, iter_rtime, iter_itime,
-            pools_x['d_avg'].mean()*100.0, pools_x['survival'].mean()*100.0, pools_x['median_l2'].mean()))
+            pools_x['d_avg'].mean(), pools_x['survival'].mean(), pools_x['median_l2'].mean()))
             
     writer_x.close()
             
