@@ -12,14 +12,9 @@ import utils.misc
 import utils.improc
 import glob
 import cv2
-from torchvision.transforms import ColorJitter, GaussianBlur
 import albumentations as A
 from functools import partial
 import sys
-
-# np.random.seed(125)
-# torch.multiprocessing.set_sharing_strategy('file_system')
-
 
 def augment_video(augmenter, **kwargs):
     assert isinstance(augmenter, A.ReplayCompose)
@@ -81,9 +76,7 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
             print(self.sequences)
         print('found %d unique videos in %s (dset=%s)' % (len(self.sequences), dataset_location, dset))
         
-        ## load trajectories
         print('loading trajectories...')
-
         if quick:
            self.sequences = self.sequences[:1] 
         
@@ -101,7 +94,6 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
                     for ii in range(0,len(os.listdir(rgb_path))-self.S*stride+1, 4):
                         full_idx = ii + np.arange(self.S)*stride
                         self.rgb_paths.append([os.path.join(seq, 'rgbs', 'rgb_%05d.jpg' % idx) for idx in full_idx])
-                        # self.depth_paths.append([os.path.join(seq, 'depths', 'depth_%05d.png' % idx) for idx in full_idx])
                         self.annotation_paths.append(os.path.join(seq, 'annotations.npz'))
                         self.full_idxs.append(full_idx)
                         if verbose:
@@ -115,13 +107,8 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
         print('collected %d clips of length %d in %s (dset=%s)' % (
             len(self.rgb_paths), self.S, dataset_location, dset))
 
-        # photometric augmentation
-        self.photo_aug = ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.25 / 3.14)
-
         self.spatial_aug_prob = 0.7
         self.reverse_prob = 0.5
-        
-        self.perframe_color_aug_prob = 0.2
 
         # occlusion augmentation
         self.eraser_aug_prob = 0.2
@@ -214,42 +201,27 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
         for rgb_path in rgb_paths:
             with Image.open(rgb_path) as im:
                 rgbs.append(np.array(im)[:, :, :3])
-
-        # if self.load_3d:
-        #     depths = []
-        #     for depth_path in depth_paths:
-        #         depth16 = cv2.imread(depth_path, cv2.IMREAD_ANYDEPTH)
-        #         depth = depth16.astype(np.float32) / 65535.0 * 1000.0
-        #         depths.append(depth)
-        # else:
-        #     depths = None
                 
         if self.use_augs:
-            rgbs, trajs, visibs = self.add_photometric_augs(rgbs, trajs, visibs)
+            rgbs = np.stack(rgbs, 0)
+            augment_video(self.color_augmenter, image=rgbs)
+            rgbs = [rgb for rgb in rgbs]
 
             if np.random.rand() < self.reverse_prob:
                 rgbs = np.stack(rgbs, 0)
-                # depths = np.stack(depths, 0)
                 rgbs = np.flip(rgbs, axis=0)
                 trajs = np.flip(trajs, axis=0)
                 visibs = np.flip(visibs, axis=0)
                 rgbs = [rgb for rgb in rgbs]
 
-                # if self.load_3d:
-                #     depths = np.stack(depths, 0)
-                #     depths = np.flip(depths, axis=0)
-                #     depths = [depth for depth in depths]
-
         if self.use_augs and (np.random.rand() < self.spatial_aug_prob):
             rgbs, trajs = self.add_spatial_augs(rgbs, trajs, visibs)
         else:
-            if np.random.rand() < 0.5: # crop
+            # either crop or resize
+            if np.random.rand() < 0.5:
                 rgbs, trajs = self.just_crop(rgbs, trajs)
-                # if index % 2 == 0:
             else:
-                # else:
                 rgbs, trajs = self.just_resize(rgbs, trajs)
-            # rgbs, trajs, depths = self.just_resize(rgbs, trajs, depths)
 
         H,W,C = rgbs[0].shape
         assert(C==3)
@@ -291,7 +263,6 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
 
         # ensure that the per-frame motion isn't too crazy
         mot = np.max(np.linalg.norm(trajs[1:] - trajs[:-1], axis=-1), axis=0) # N
-        # print('min', np.min(mot), 'max', np.max(mot))
         mot_ok = mot < 128
         if np.sum(~mot_ok):
             print('sum(~mot_ok)', np.sum(~mot_ok))
@@ -344,19 +315,12 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
             'visibs': visibs,
             'valids': valids,
         }
-        
-        
-        # if self.load_3d:
-        #     depths = torch.from_numpy(np.stack(depths, 0)).unsqueeze(1)  # S,1,H,W
-        #     sample['depths'] = depths
         return sample, True
-
     
     def __getitem__(self, index):
         gotit = False
         sample, gotit = self.getitem_helper(index)
         if not gotit:
-            print('warning: sampling failed')
             # return a fake sample, so we can still collate
             sample = {
                 'rgbs': torch.zeros((self.S, 3, self.crop_size[0], self.crop_size[1])),
@@ -365,50 +329,6 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
                 'valids': torch.zeros((self.S, self.N)),
             }
         return sample, gotit
-    
-
-    def add_photometric_augs(self, rgbs, trajs, visibs):
-        T, N, _ = trajs.shape
-
-        # print('trajs', trajs.shape)
-        # print('len(rgbs)', len(rgbs))
-
-        S = len(rgbs)
-        H, W = rgbs[0].shape[:2]
-        assert (S == T)
-
-        # ############ eraser transform (per image after the first) ############
-        # rgbs = [rgb.astype(np.float32) for rgb in rgbs]
-        # for i in range(1, S):
-        #     if np.random.rand() < self.eraser_aug_prob:
-        #         mean_color = np.mean(rgbs[i].reshape(-1, 3), axis=0)
-        #         for _ in range(np.random.randint(1, 3)):  # number of times to occlude
-        #             xc = np.random.randint(0, W)
-        #             yc = np.random.randint(0, H)
-        #             dx = np.random.randint(self.eraser_bounds[0], self.eraser_bounds[1])
-        #             dy = np.random.randint(self.eraser_bounds[0], self.eraser_bounds[1])
-        #             x0 = np.clip(xc - dx / 2, 0, W - 1).round().astype(np.int32)
-        #             x1 = np.clip(xc + dx / 2, 0, W - 1).round().astype(np.int32)
-        #             y0 = np.clip(yc - dy / 2, 0, W - 1).round().astype(np.int32)
-        #             y1 = np.clip(yc + dy / 2, 0, W - 1).round().astype(np.int32)
-        #             # print(x0, x1, y0, y1)
-        #             rgbs[i][y0:y1, x0:x1, :] = mean_color
-
-        #             occ_inds = np.logical_and(np.logical_and(trajs[i, :, 0] >= x0, trajs[i, :, 0] < x1),
-        #                                       np.logical_and(trajs[i, :, 1] >= y0, trajs[i, :, 1] < y1))
-        #             visibs[i, occ_inds] = 0
-        # rgbs = [rgb.astype(np.uint8) for rgb in rgbs]
-
-        ############ photometric augmentation ############
-        rgbs = np.stack(rgbs, 0)
-        augment_video(self.color_augmenter, image=rgbs)
-        rgbs = [rgb for rgb in rgbs]
-        
-        # if np.random.rand() < self.perframe_color_aug_prob:
-        #     rgbs = [np.array(self.photo_aug(Image.fromarray(rgb)), dtype=np.uint8) for rgb in rgbs]
-
-        return rgbs, trajs, visibs
-    
 
     def add_spatial_augs(self, rgbs, trajs, visibs):
         T, N, _ = trajs.shape
@@ -571,7 +491,7 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
             
         return rgbs, trajs
 
-    def just_resize(self, rgbs, trajs):#, depths=None):
+    def just_resize(self, rgbs, trajs):
         T, N, _ = trajs.shape
         
         S = len(rgbs)
@@ -585,12 +505,8 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
         rgbs = [cv2.resize(rgb, (W_new, H_new), interpolation=cv2.INTER_LINEAR) for rgb in rgbs]
         sc_py = np.array([sx_, sy_]).reshape([1,1,2])
         trajs = trajs * sc_py
-
-        # if depths is not None:
-        #     depths = [cv2.resize(depth, (W_new, H_new), interpolation=cv2.INTER_NEAREST) for depth in depths]
         
-        return rgbs, trajs#, depths
-    
+        return rgbs, trajs
 
     def __len__(self):
         return len(self.rgb_paths)
