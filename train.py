@@ -65,7 +65,6 @@ def val_model(model, d, device, iters=8, sw=None, is_train=False):
     B, S, C, H, W = rgbs.shape
     B, S, N, D = trajs_g.shape
     assert(D==2)
-    assert(B==1)
 
     # zero-vel init
     trajs_e0 = trajs_g[:,0:1].repeat(1,S,1,1)
@@ -288,7 +287,7 @@ def main(
         # summaries
         log_dir='./logs_train',
         log_freq=2000,
-        val_freq=0,
+        val_freq=100,
         # saving/loading
         ckpt_dir='./checkpoints',
         save_freq=1000,
@@ -310,6 +309,8 @@ def main(
 
     exp_name = 'aa00' # go
     exp_name = 'aa01' # update stats
+    exp_name = 'aa02' # train overnight on partial data
+    exp_name = 'aa03' # more data; val_freq 100
 
     if quick: # (debug)
         B = 1
