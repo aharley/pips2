@@ -22,8 +22,6 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
                  dataset_location='/orion/group/point_odyssey',
                  dset='test',
                  N=32,
-                 image_size=(368, 496),
-                 quick=False,
                  verbose=False,
     ):
         print('loading pointodyssey fullseq dataset...')
@@ -35,7 +33,6 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
 
         self.dset = dset
         self.N = N
-        self.image_size = image_size
 
         self.seq_paths = []
         self.rgb_paths = []
@@ -128,7 +125,6 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
         trajs = trajs[:,vis0]
         visibs = visibs[:,vis0]
         valids = valids[:,vis0]
-        # print('N good0', trajs.shape[1])
 
         # ensure that the point is good in at least K frames total
         vis_and_val = valids * visibs
@@ -136,7 +132,6 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
         trajs = trajs[:,val_ok]
         visibs = visibs[:,val_ok]
         valids = valids[:,val_ok]
-        # print('N good2', trajs.shape[1])
         
         N = trajs.shape[1]
         

@@ -45,7 +45,8 @@ def test_on_fullseq(model, d, sw, iters=8, S_max=8, image_size=(384,512)):
     B, S, N, D = trajs_g.shape
     assert(D==2)
     assert(B==1)
-
+    print('this video is %d frames long' % S)
+    
     H_bak, W_bak = 540, 960
     H, W = image_size
     sy = H/H_bak
@@ -93,7 +94,6 @@ def test_on_fullseq(model, d, sw, iters=8, S_max=8, image_size=(384,512)):
         #     traj_seq_e = preds[-1]
         #     traj_seq_g = trajs_g[:,cur_frame:end_frame]
         #     valid_seq = valids[:,cur_frame:end_frame]
-            
         #     prep_rgbs = utils.improc.preprocess_color(rgb_seq)
         #     gray_rgbs = torch.mean(prep_rgbs, dim=2, keepdim=True).repeat(1, 1, 3, 1, 1)
         #     gt_rgb = utils.improc.preprocess_color(sw.summ_traj2ds_on_rgb('', traj_seq_g, gray_rgbs[0:1].mean(dim=1), valids=valid_seq, cmap='winter', only_return=True))
@@ -191,7 +191,6 @@ def main(
         dataset_location=dataset_location,
         dset=dset,
         N=N,
-        image_size=image_size,
         verbose=True,
     )
     dataloader_x = DataLoader(
