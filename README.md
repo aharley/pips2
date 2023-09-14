@@ -118,23 +118,35 @@ We provide evaluation scripts for all of the datasets reported in the paper. The
 
 For each point with a valid annotation in frame0, we track it to the end of the video (<200 frames). The data comes from the [DeepMind TAP-NET repo](https://github.com/google-deepmind/tapnet#tap-vid-benchmark). 
 
-```test_on_tap.py```
-
-With the reference model, this should yield `d_avg 70.4; survival_16 90.5; median_l2 5.0`.
+With the reference model, `test_on_tap.py` should yield `d_avg 70.4; survival_16 90.5; median_l2 5.0`.
 
 **CroHD**
 
 We chop the videos in to 1000-frame clips, and track heads from the beginning to the end. The data comes from the "Get all data" link on the [Head Tracking 21 MOT Challenge](https://motchallenge.net/data/Head_Tracking_21/) page. Downloading and unzipping that should give you the folders HT21 and HT21Labels, which our dataloader relies on.
 
-```test_on_cro.py```
+With the reference model, `test_on_cro.py` should yield `d_avg 42.4; survival_16 55.3; median_l2 16.1`. 
 
-With the reference model, this should yield `d_avg 42.4; survival_16 55.3; median_l2 16.1`. 
-
-**PointOdyssey**
+**PointOdyssey test set**
 
 For each point with a valid annotation in frame0, we track it to the end of the video (~2k frames). Note that here we use the `pointodysseydataset_fullseq.py` dataloader, and we load `S=128` frames at a time, because 2k frames will not fit in memory. 
 
-```test_on_pod.py```
+With the reference model, `test_on_pod.py` should yield `d_avg 30.9; survival_16 31.7; median_l2 33.5`.
 
-With the reference model, this should yield `d_avg 30.9; survival_16 31.7; median_l2 33.5`.
+
+
+## Citation
+
+If you use this code for your research, please cite:
+
+**PointOdyssey: A Large-Scale Synthetic Dataset for Long-Term Point Tracking.** Yang Zheng, Adam W. Harley, Bokui Shen, Gordon Wetzstein, Leonidas J. Guibas. In ICCV 2023.
+
+Bibtex:
+```
+@inproceedings{zheng2023point,
+ author = {Yang Zheng and Adam W. Harley and Bokui Shen and Gordon Wetzstein and Leonidas J. Guibas},
+ title = {PointOdyssey: A Large-Scale Synthetic Dataset for Long-Term Point Tracking},
+ booktitle = {ICCV},
+ year = {2023}
+}
+```
 
