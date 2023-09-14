@@ -110,7 +110,7 @@ def main(
     # the idea in this file is:
     # walk through the dataset,
     # and export rgb mp4s for all valid samples,
-    # to avoid a dataloading bottleneck in the trainer
+    # so that dataloading is not a bottleneck in training
     
     exp_name = 'em00' # copy from dev repo
     
