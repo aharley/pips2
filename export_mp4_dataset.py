@@ -34,7 +34,7 @@ def run_model(d, exp_out_dir, device, mname, export=True, sw=None):
     B,S,N,D = trajs.shape
     assert(D==2)
     
-    if torch.sum(valids)<B*S*N*3//4:
+    if torch.sum(valids)<B*S*N//2:
         sys.stdout.write('x')
         sys.stdout.flush()
         return False
@@ -96,7 +96,7 @@ def main(
         dset='train', 
         S=36, # seqlen
         N=128, # number of particles to export per clip
-        crop_size=(256,384), 
+        crop_size=(384,512), 
         use_augs=True, # resizing/jittering/color/blur augs
         shuffle=False, # dataset shuffling
         log_dir='./logs_export_mp4_dataset',
@@ -115,6 +115,10 @@ def main(
     exp_name = 'em00' # copy from dev repo
     
     mod = 'aa' # copy from dev repo; crop_size=(256x384), S=36
+    mod = 'ab' # allow more OOB, by updating threshs to 64; export at 384,512; output 256; export as long as we have N//2
+    mod = 'ac' # N=128
+    mod = 'ad' # put more info into name; also print rtime
+    mod = 'ae' # allow trajs to go behind camera during S
 
     assert(crop_size[0] % 64 == 0)
     assert(crop_size[1] % 64 == 0)
@@ -147,7 +151,7 @@ def main(
         dataset_t,
         batch_size=1,
         shuffle=shuffle,
-        num_workers=6,
+        num_workers=4,
         worker_init_fn=worker_init_fn,
         drop_last=True)
     iterloader_t = iter(dataloader_t)
@@ -171,7 +175,8 @@ def main(
             scalar_freq=int(log_freq/4),
             just_gif=True)
 
-        out_dir = './pod_export/%s_%d' % (mod, S)
+        H, W = crop_size
+        out_dir = './pod_export/%s_%d_%d_%dx%d' % (mod, S, N, H, W)
         exp_out_dir = '%s/%06d' % (out_dir, this_step)
 
         npz_out_f = '%s/track.npz' % (exp_out_dir)
@@ -184,11 +189,12 @@ def main(
         else:
             sample, gotit = dataset_t.__getitem__(this_step % len(dataloader_t))
             if gotit:
+                iter_rtime = time.time()-iter_start_time
                 out = run_model(sample, exp_out_dir, device, model_name, sw=sw_t)
-                iter_time = time.time()-iter_start_time
+                iter_itime = time.time()-iter_start_time
                 if out:
-                    print('%s; step %06d/%d; this_step %06d; itime %.2f' % (
-                        model_name, global_step, max_iters, this_step, iter_time))
+                    print('%s; step %06d/%d; this_step %06d; rtime %.2f; itime %.2f' % (
+                        model_name, global_step, max_iters, this_step, iter_rtime, iter_itime))
     writer_t.close()
             
 

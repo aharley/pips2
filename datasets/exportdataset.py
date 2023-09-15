@@ -62,7 +62,7 @@ class ExportDataset(torch.utils.data.Dataset):
         self.crop_size = crop_size
         self.use_augs = use_augs
         
-        self.dataset_location = Path('%s/%s_%d' % (self.dataset_location, dataset_version, S))
+        self.dataset_location = Path('%s/%s' % (self.dataset_location, dataset_version))
 
         folder_names = self.dataset_location.glob('*/')
         folder_names = [fn for fn in folder_names]
