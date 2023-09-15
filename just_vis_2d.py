@@ -82,17 +82,16 @@ def main(
         dataset_location='/orion/group/point_odyssey', 
         log_freq=1,
         max_iters=10,
-        # cuda
-        device_ids=[0],
         quick=False,
         dname=None,
 ):
-    device = 'cuda:%d' % device_ids[0]
+    device = 'cpu:0'
 
     # the idea in this file is:
     # load pointodyssey data and visualize it
     
     exp_name = 'jv00' # copy from dev repo
+    exp_name = 'jv01' # fix color bug...
     
     import socket
     host = socket.gethostname()
