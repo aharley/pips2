@@ -24,11 +24,11 @@ def create_pools(n_pool=1000):
     pools = {}
     pool_names = [
         'l1',
-        'd1',
-        'd2',
-        'd4',
-        'd8',
-        'd16',
+        'd_1',
+        'd_2',
+        'd_4',
+        'd_8',
+        'd_16',
         'd_avg',
         'l1_vis',
         'ate_all',
@@ -40,7 +40,6 @@ def create_pools(n_pool=1000):
     ]
     for pool_name in pool_names:
         pools[pool_name] = utils.misc.SimplePool(n_pool, version='np')
-    
     return pools
 
 def requires_grad(parameters, flag=True):
@@ -122,7 +121,7 @@ def val_model(model, d, device, iters=8, sw=None, is_train=False):
     # get the median l2 error for each trajectory
     dists_ = dists.permute(0,2,1).reshape(B*N,S)
     valids_ = valids.permute(0,2,1).reshape(B*N,S)
-    median_l2 = utils.basic.reduce_masked_median(dists_, valids_, keep_batch=True)
+    median_l2 = utils.basic.reduce_masked_median(dists_, valids_, keep_batch=True) # B*N
     metrics['median_l2'] = median_l2.mean().item()
 
     return metrics
@@ -190,7 +189,7 @@ def run_model(model, d, device, iters=8, sw=None, is_train=True, use_augs=True):
     sx_ = W / 256.0
     sy_ = H / 256.0
     sc_py = np.array([sx_, sy_]).reshape([1,1,2])
-    sc_pt = torch.from_numpy(sc_py).float().cuda()
+    sc_pt = torch.from_numpy(sc_py).float().to(device)
     for thr in thrs:
         # note we exclude timestep0 from this eval
         d_ = (torch.norm(trajs_e[:,1:]/sc_pt - trajs_g[:,1:]/sc_pt, dim=-1) < thr).float() # B,S-1,N
@@ -209,7 +208,10 @@ def run_model(model, d, device, iters=8, sw=None, is_train=True, use_augs=True):
     # get the median l2 error for each trajectory
     dists_ = dists.permute(0,2,1).reshape(B*N,S)
     valids_ = valids.permute(0,2,1).reshape(B*N,S)
-    median_l2 = utils.basic.reduce_masked_median(dists_, valids_, keep_batch=True)
+    val_ok = valids_[:,0] > 0 # get rid of the ones we padded in
+    dists_ = dists_[val_ok]
+    valids_ = valids_[val_ok]
+    median_l2 = utils.basic.reduce_masked_median(dists_, valids_, keep_batch=True) # B*N
     metrics['median_l2'] = median_l2.mean().item()
 
     if sw is not None and sw.save_this:
@@ -267,18 +269,20 @@ def run_model(model, d, device, iters=8, sw=None, is_train=True, use_augs=True):
     
 
 def main(
-        B=4, # batchsize 
+        B=2, # batchsize 
         S=36, # seqlen
-        N=128, # number of points per clip
+        N=64, # number of points per clip
         stride=8, # spatial stride of the model 
         iters=6, # inference steps of the model
-        crop_size=(256,384), # raw flt data is 540,960
+        crop_size=(384,512), # raw flt data is 540,960
         use_augs=True, # resizing/jittering/color/blur augs
         shuffle=True, # dataset shuffling
         cache_len=0, # how many samples to cache into ram (for overfitting/debug)
         cache_freq=0, # how often to add a new sample to cache
         dataset_location='./pod_export', # where we exported the data
-        dataset_version='aa', # version id
+        dataset_version='ae_36_128_384x512', # export version
+        n_pool=1000, # size of running avg for stats
+        quick=False, # debug
         # optimization
         lr=5e-4,
         grad_acc=1, 
@@ -286,7 +290,7 @@ def main(
         max_iters=200000,
         # summaries
         log_dir='./logs_train',
-        log_freq=2000,
+        log_freq=1000,
         val_freq=100,
         # saving/loading
         ckpt_dir='./checkpoints',
@@ -296,10 +300,7 @@ def main(
         load_optimizer=True,
         load_step=True,
         ignore_load=None,
-        # cuda
         device_ids=[0],
-        quick=False,
-        n_pool=1000,
 ):
     device = 'cuda:%d' % device_ids[0]
 
@@ -311,6 +312,19 @@ def main(
     exp_name = 'aa01' # update stats
     exp_name = 'aa02' # train overnight on partial data
     exp_name = 'aa03' # more data; val_freq 100
+    exp_name = 'aa04' # init from aa03; train with flow bug fixed
+    exp_name = 'aa05' # init from aa04; blue
+    exp_name = 'aa06' # init from aa04; train with ~4k ae
+    exp_name = 'aa07' # init from aa06; log1k
+    exp_name = 'aa08' # N=64
+    exp_name = 'aa09' # debug stats
+    exp_name = 'aa10' # blue  < still median_l2 seems missing
+    exp_name = 'aa11' # debug stats more
+    exp_name = 'aa12' # init aa10 
+    
+    init_dir = '4_36_128_i6_5e-4s_A_aa04_135753'
+    init_dir = '2_36_32_i6_5e-4s_A_aa06_180026'
+    init_dir = '2_36_64_i6_5e-4s_A_aa10_191220'
 
     if quick: # (debug)
         B = 1
@@ -487,7 +501,7 @@ def main(
                 global_step=global_step,
                 log_freq=log_freq,
                 fps=min(S,8),
-                scalar_freq=int(log_freq/4),
+                scalar_freq=log_freq//4,
                 just_gif=True)
             if cache_len:
                 sample = sample_pool_t.sample()

@@ -124,7 +124,7 @@ def reduce_masked_mean(x, mask, dim=None, keepdim=False):
 def reduce_masked_median(x, mask, keep_batch=False):
     # x and mask are the same shape
     assert(x.size() == mask.size())
-    prod = x*mask
+    device = x.device
 
     B = list(x.shape)[0]
     x = x.detach().cpu().numpy()
@@ -142,8 +142,8 @@ def reduce_masked_median(x, mask, keep_batch=False):
                 meds[b] = np.median(xb)
             else:
                 meds[b] = np.nan
-        meds = torch.from_numpy(meds).cuda()
-        return meds
+        meds = torch.from_numpy(meds).to(device)
+        return meds.float()
     else:
         x = np.reshape(x, [-1])
         mask = np.reshape(mask, [-1])
@@ -153,8 +153,8 @@ def reduce_masked_median(x, mask, keep_batch=False):
         else:
             med = np.nan
         med = np.array([med], np.float32)
-        med = torch.from_numpy(med).cuda()
-        return med
+        med = torch.from_numpy(med).to(device)
+        return med.float()
 
 def pack_seqdim(tensor, B):
     shapelist = list(tensor.shape)
