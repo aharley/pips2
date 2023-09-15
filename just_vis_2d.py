@@ -136,15 +136,8 @@ def main(
     
     global_step = 0
     while global_step < max_iters:
-
         global_step += 1
-
         iter_start_time = time.time()
-        iter_rtime = 0.0
-        
-        # read sample
-        read_start_time = time.time()
-
         sw_t = utils.improc.Summ_writer(
             writer=writer_t,
             global_step=global_step,
@@ -161,15 +154,12 @@ def main(
                 iterloader_t = iter(dataloader_t)
                 sample, gotit = next(iterloader_t)
 
-        rtime = time.time()-read_start_time
-        iter_rtime += rtime
-
+        iter_rtime = time.time()-iter_start_time
         _ = run_model(sample, device, sw=sw_t)
-
-        iter_time = time.time()-iter_start_time
+        iter_itime = time.time()-iter_start_time
         
         print('%s; step %06d/%d; rtime %.2f; itime %.2f' % (
-            model_name, global_step, max_iters, rtime, iter_time))
+            model_name, global_step, max_iters, iter_rtime, iter_itime))
             
     writer_t.close()
             
