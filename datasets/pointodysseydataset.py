@@ -157,23 +157,15 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
         # print(annotations.files)
         trajs = annotations['trajs_2d'][full_idx].astype(np.float32)
         visibs = annotations['visibilities'][full_idx].astype(np.float32)
-        valids = (visibs<2).astype(np.float32)
-        visibs = (visibs==1).astype(np.float32)
+        valids = (visibs<2).astype(np.float32) # S,N
+        visibs = (visibs==1).astype(np.float32) # S,N
 
-        trajs_world = annotations['trajs_3d'][full_idx].astype(np.float32)
-        pix_T_cams = annotations['intrinsics'][full_idx].astype(np.float32)
-        cams_T_world = annotations['extrinsics'][full_idx].astype(np.float32)
-        
-        trajs_cams = utils.geom.apply_4x4_py(cams_T_world, trajs_world) # S,N,3
-        # these are the trajectories in the camera coordinate systems
-        # we will use these to discard trajectories that travel behind the camera,
-        # because projection gives unusable results on these
-        zs = trajs_cams[:,:,2] # S,N
-        min_z = np.min(zs, axis=0) # N
-        z_ok = min_z > 1e-4
-        trajs = trajs[:,z_ok]
-        visibs = visibs[:,z_ok]
-        valids = valids[:,z_ok]
+        # ensure that the point is good in frame0
+        vis_and_val = valids * visibs
+        vis0 = vis_and_val[0] > 0
+        trajs = trajs[:,vis0]
+        visibs = visibs[:,vis0]
+        valids = valids[:,vis0]
 
         S,N,D = trajs.shape
         assert(D==2)
@@ -183,16 +175,14 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
             print('returning before cropping: N=%d; need N=%d' % (N, self.N))
             return None, False
 
-        valids_xy = np.ones_like(trajs)
-
         # get rid of infs and nans
+        valids_xy = np.ones_like(trajs)
         inf_idx = np.where(np.isinf(trajs))
         trajs[inf_idx] = 0
         valids_xy[inf_idx] = 0
         nan_idx = np.where(np.isnan(trajs))
         trajs[nan_idx] = 0
         valids_xy[nan_idx] = 0
-
         inv_idx = np.where(np.sum(valids_xy, axis=2)<2) # S,N
         visibs[inv_idx] = 0
         valids[inv_idx] = 0
