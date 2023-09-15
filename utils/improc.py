@@ -956,17 +956,11 @@ class Summ_writer(object):
         rgbs_color = [rgb.astype(np.uint8).copy() for rgb in rgbs_color]
         
         for i in range(N):
-            if cmap=='onediff' and i==0:
-                cmap_ = 'spring'
-            elif cmap=='onediff':
-                cmap_ = 'winter'
-            else:
-                cmap_ = cmap
             traj = trajs[:,i] # S,2
             valid = valids[:,i] # S
 
             color_map = cm.get_cmap(cmap)
-            color = np.array(color_map(i)[:3]) * 255 # rgb
+            color = np.array(color_map(0)[:3]) * 255 # rgb
             for s in range(S):
                 if valid[s]:
                     cv2.circle(rgbs_color[s], (traj[s,0], traj[s,1]), linewidth, color, -1)
