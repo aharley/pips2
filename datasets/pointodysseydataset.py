@@ -236,18 +236,18 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
 
             # when a point moves far oob, don't supervise with it
             very_oob_inds = np.logical_or(
-                np.logical_or(trajs[si,:,0] < -32, trajs[si,:,0] > W+32),
-                np.logical_or(trajs[si,:,1] < -32, trajs[si,:,1] > H+32))
+                np.logical_or(trajs[si,:,0] < -64, trajs[si,:,0] > W+64),
+                np.logical_or(trajs[si,:,1] < -64, trajs[si,:,1] > H+64))
             valids[si,very_oob_inds] = 0
 
-        # ensure that the point is good at frame0
+        # ensure that the point is good in frame0
         vis_and_val = valids * visibs
         vis0 = vis_and_val[0] > 0
         trajs = trajs[:,vis0]
         visibs = visibs[:,vis0]
         valids = valids[:,vis0]
 
-        # ensure that the point is good at frame1
+        # ensure that the point is good in frame1
         vis_and_val = valids * visibs
         vis1 = vis_and_val[1] > 0
         trajs = trajs[:,vis1]
@@ -255,17 +255,16 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
         valids = valids[:,vis1]
 
         # ensure that the point is good in at least sqrt(S) frames
-        vis_and_val = valids * visibs
-        vis_ok = np.sum(vis_and_val, axis=0) >= max(np.sqrt(S),2)
-        trajs = trajs[:,vis_ok]
-        visibs = visibs[:,vis_ok]
-        valids = valids[:,vis_ok]
+        val_ok = np.sum(valids, axis=0) >= max(np.sqrt(S),2)
+        trajs = trajs[:,val_ok]
+        visibs = visibs[:,val_ok]
+        valids = valids[:,val_ok]
 
         # ensure that the per-frame motion isn't too crazy
         mot = np.max(np.linalg.norm(trajs[1:] - trajs[:-1], axis=-1), axis=0) # N
         mot_ok = mot < 128
-        if np.sum(~mot_ok):
-            print('sum(~mot_ok)', np.sum(~mot_ok))
+        # if np.sum(~mot_ok):
+        #     print('sum(~mot_ok)', np.sum(~mot_ok))
         trajs = trajs[:,mot_ok]
         visibs = visibs[:,mot_ok]
         valids = valids[:,mot_ok]
@@ -273,7 +272,7 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
         N = trajs.shape[1]
         
         if N < self.N//2:
-            print('N=%d' % (N))
+            # print('N=%d' % (N))
             return None, False
         
         if N < self.N:
@@ -288,7 +287,7 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
             valids = valids[:,inds]
 
         # we won't supervise with the extremes, but let's clamp anyway just to be safe
-        trajs = np.minimum(np.maximum(trajs, np.array([-32,-32])), np.array([W+31, H+31])) # S,N,2
+        trajs = np.minimum(np.maximum(trajs, np.array([-64,-64])), np.array([W+64, H+64])) # S,N,2
         
         N = trajs.shape[1]
         N_ = min(N, self.N)
