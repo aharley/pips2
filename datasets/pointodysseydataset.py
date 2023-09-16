@@ -40,6 +40,7 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
                  use_augs=False,
                  S=8,
                  N=32,
+                 strides=[1,2,3,4],
                  crop_size=(368, 496),
                  quick=False,
                  verbose=False,
@@ -90,7 +91,7 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
                 if verbose: 
                     print('seq', seq)
                     
-                for stride in [1,2,3,4]:
+                for stride in strides:
                     for ii in range(0,len(os.listdir(rgb_path))-self.S*stride+1, 4):
                         full_idx = ii + np.arange(self.S)*stride
                         self.rgb_paths.append([os.path.join(seq, 'rgbs', 'rgb_%05d.jpg' % idx) for idx in full_idx])
@@ -150,11 +151,9 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
         gotit = False
 
         rgb_paths = self.rgb_paths[index]
-        # depth_paths = self.depth_paths[index]
         full_idx = self.full_idxs[index]
         annotations_path = self.annotation_paths[index]
         annotations = np.load(annotations_path, allow_pickle=True)
-        # print(annotations.files)
         trajs = annotations['trajs_2d'][full_idx].astype(np.float32)
         visibs = annotations['visibilities'][full_idx].astype(np.float32)
         valids = (visibs<2).astype(np.float32) # S,N
@@ -171,8 +170,8 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
         assert(D==2)
         assert(S==self.S)
 
-        if N < self.N:
-            print('returning before cropping: N=%d; need N=%d' % (N, self.N))
+        if N < self.N//2:
+            print('returning before cropping: N=%d; need at least N=%d' % (N, self.N//2))
             return None, False
 
         # get rid of infs and nans
@@ -287,16 +286,14 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
         trajs_full = np.zeros((self.S, self.N, 2)).astype(np.float32)
         visibs_full = np.zeros((self.S, self.N)).astype(np.float32)
         valids_full = np.zeros((self.S, self.N)).astype(np.float32)
-
         trajs_full[:,:N_] = trajs[:,inds]
         visibs_full[:,:N_] = visibs[:,inds]
         valids_full[:,:N_] = valids[:,inds]
-        
 
-        rgbs = torch.from_numpy(np.stack(rgbs, 0)).permute(0,3,1,2)  # S, C, H, W
-        trajs = torch.from_numpy(trajs_full)  # S, N, 2
-        visibs = torch.from_numpy(visibs_full)  # S, N
-        valids = torch.from_numpy(valids_full)  # S, N
+        rgbs = torch.from_numpy(np.stack(rgbs, 0)).permute(0,3,1,2) # S,C,H,W
+        trajs = torch.from_numpy(trajs_full) # S,N,2
+        visibs = torch.from_numpy(visibs_full) # S,N
+        valids = torch.from_numpy(valids_full) # S,N
 
         sample = {
             'rgbs': rgbs,
@@ -464,20 +461,12 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
 
         H_new, W_new = self.crop_size[0], self.crop_size[1]
 
-        if np.random.rand() < 0.5:
-            # simple random crop
-            y0 = np.random.randint(0, H-H_new)
-            x0 = np.random.randint(0, W-W_new)
-            rgbs = [rgb[y0:y0+H_new, x0:x0+W_new] for rgb in rgbs]
-            trajs[:,:,0] -= x0
-            trajs[:,:,1] -= y0
-        else:
-            sx_ = W_new / W
-            sy_ = H_new / H
-            rgbs = [cv2.resize(rgb, (W_new, H_new), interpolation=cv2.INTER_LINEAR) for rgb in rgbs]
-            sc_py = np.array([sx_, sy_]).reshape([1,1,2])
-            trajs = trajs * sc_py
-            
+        y0 = np.random.randint(0, H-H_new)
+        x0 = np.random.randint(0, W-W_new)
+        rgbs = [rgb[y0:y0+H_new, x0:x0+W_new] for rgb in rgbs]
+        trajs[:,:,0] -= x0
+        trajs[:,:,1] -= y0
+
         return rgbs, trajs
 
     def just_resize(self, rgbs, trajs):
