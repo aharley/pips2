@@ -290,10 +290,10 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
         visibs_full[:,:N_] = visibs[:,inds]
         valids_full[:,:N_] = valids[:,inds]
 
-        rgbs = torch.from_numpy(np.stack(rgbs, 0)).permute(0,3,1,2) # S,C,H,W
-        trajs = torch.from_numpy(trajs_full) # S,N,2
-        visibs = torch.from_numpy(visibs_full) # S,N
-        valids = torch.from_numpy(valids_full) # S,N
+        rgbs = torch.from_numpy(np.stack(rgbs, 0)).permute(0,3,1,2).byte() # S,C,H,W
+        trajs = torch.from_numpy(trajs_full).float() # S,N,2
+        visibs = torch.from_numpy(visibs_full).float() # S,N
+        valids = torch.from_numpy(valids_full).float() # S,N
 
         sample = {
             'rgbs': rgbs,
@@ -309,10 +309,10 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
         if not gotit:
             # return a fake sample, so we can still collate
             sample = {
-                'rgbs': torch.zeros((self.S, 3, self.crop_size[0], self.crop_size[1])),
-                'trajs': torch.zeros((self.S, self.N, 2)),
-                'visibs': torch.zeros((self.S, self.N)),
-                'valids': torch.zeros((self.S, self.N)),
+                'rgbs': torch.zeros((self.S, 3, self.crop_size[0], self.crop_size[1]), dtype=torch.uint8),
+                'trajs': torch.zeros((self.S, self.N, 2), dtype=torch.float32),
+                'visibs': torch.zeros((self.S, self.N), dtype=torch.float32),
+                'valids': torch.zeros((self.S, self.N), dtype=torch.float32),
             }
         return sample, gotit
 
