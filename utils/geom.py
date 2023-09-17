@@ -4,6 +4,40 @@ import numpy as np
 import torchvision.ops as ops
 from utils.basic import print_
 
+def matmul2(mat1, mat2):
+    return torch.matmul(mat1, mat2)
+
+def matmul3(mat1, mat2, mat3):
+    return torch.matmul(mat1, torch.matmul(mat2, mat3))
+
+def eye_3x3(B, device='cuda'):
+    rt = torch.eye(3, device=torch.device(device)).view(1,3,3).repeat([B, 1, 1])
+    return rt
+
+def eye_4x4(B, device='cuda'):
+    rt = torch.eye(4, device=torch.device(device)).view(1,4,4).repeat([B, 1, 1])
+    return rt
+
+def safe_inverse(a): #parallel version
+    B, _, _ = list(a.shape)
+    inv = a.clone()
+    r_transpose = a[:, :3, :3].transpose(1,2) #inverse of rotation matrix
+
+    inv[:, :3, :3] = r_transpose
+    inv[:, :3, 3:4] = -torch.matmul(r_transpose, a[:, :3, 3:4])
+
+    return inv
+
+def safe_inverse_single(a):
+    r, t = split_rt_single(a)
+    t = t.view(3,1)
+    r_transpose = r.t()
+    inv = torch.cat([r_transpose, -torch.matmul(r_transpose, t)], 1)
+    bottom_row = a[3:4, :] # this is [0, 0, 0, 1]
+    # bottom_row = torch.tensor([0.,0.,0.,1.]).view(1,4)
+    inv = torch.cat([inv, bottom_row], 0)
+    return inv
+
 def split_intrinsics(K):
     # K is B x 3 x 3 or B x 4 x 4
     fx = K[:,0,0]
@@ -60,6 +94,14 @@ def apply_pix_T_cam_py(pix_T_cam, xyz):
     xy = np.stack([x, y], axis=-1)
     return xy
 
+def get_camM_T_camXs(origin_T_camXs, ind=0):
+    B, S = list(origin_T_camXs.shape)[0:2]
+    camM_T_camXs = torch.zeros_like(origin_T_camXs)
+    for b in list(range(B)):
+        camM_T_origin = safe_inverse_single(origin_T_camXs[b,ind])
+        for s in list(range(S)):
+            camM_T_camXs[b,s] = torch.matmul(camM_T_origin, origin_T_camXs[b,s])
+    return camM_T_camXs
 
 def apply_4x4(RT, xyz):
     B, N, _ = list(xyz.shape)
@@ -111,7 +153,7 @@ def generate_polygon(ctr_x, ctr_y, avg_r, irregularity, spikiness, num_verts):
         avg_r - in px, the average radius of this polygon, this roughly controls how large the polygon is, really only useful for order of magnitude.
         irregularity - [0,1] indicating how much variance there is in the angular spacing of vertices. [0,1] will map to [0, 2pi/numberOfVerts]
         spikiness - [0,1] indicating how much variance there is in each vertex from the circle of radius avg_r. [0,1] will map to [0, avg_r]
-        num_verts
+pp        num_verts
 
     Returns:
         np.array [num_verts, 2] - CCW order.
@@ -446,3 +488,60 @@ def convert_box2d_to_intrinsics(box2d, pix_T_cam, H, W, use_image_aspect_ratio=T
 
     pix_T_cam = scale_intrinsics(pix_T_cam, sx, sy)
     return pix_T_cam, box2d
+
+def pixels2camera(x,y,z,fx,fy,x0,y0):
+    # x and y are locations in pixel coordinates, z is a depth in meters
+    # they can be images or pointclouds
+    # fx, fy, x0, y0 are camera intrinsics
+    # returns xyz, sized B x N x 3
+
+    B = x.shape[0]
+    
+    fx = torch.reshape(fx, [B,1])
+    fy = torch.reshape(fy, [B,1])
+    x0 = torch.reshape(x0, [B,1])
+    y0 = torch.reshape(y0, [B,1])
+
+    x = torch.reshape(x, [B,-1])
+    y = torch.reshape(y, [B,-1])
+    z = torch.reshape(z, [B,-1])
+    
+    # unproject
+    x = (z/fx)*(x-x0)
+    y = (z/fy)*(y-y0)
+    
+    xyz = torch.stack([x,y,z], dim=2)
+    # B x N x 3
+    return xyz
+
+def camera2pixels(xyz, pix_T_cam):
+    # xyz is shaped B x H*W x 3
+    # returns xy, shaped B x H*W x 2
+    
+    fx, fy, x0, y0 = split_intrinsics(pix_T_cam)
+    x, y, z = torch.unbind(xyz, dim=-1)
+    B = list(z.shape)[0]
+
+    fx = torch.reshape(fx, [B,1])
+    fy = torch.reshape(fy, [B,1])
+    x0 = torch.reshape(x0, [B,1])
+    y0 = torch.reshape(y0, [B,1])
+    x = torch.reshape(x, [B,-1])
+    y = torch.reshape(y, [B,-1])
+    z = torch.reshape(z, [B,-1])
+
+    EPS = 1e-4
+    z = torch.clamp(z, min=EPS)
+    x = (x*fx)/z + x0
+    y = (y*fy)/z + y0
+    xy = torch.stack([x, y], dim=-1)
+    return xy
+
+def depth2pointcloud(z, pix_T_cam):
+    B, C, H, W = list(z.shape)
+    device = z.device
+    y, x = utils.basic.meshgrid2d(B, H, W, device=device)
+    z = torch.reshape(z, [B, H, W])
+    fx, fy, x0, y0 = split_intrinsics(pix_T_cam)
+    xyz = pixels2camera(x, y, z, fx, fy, x0, y0)
+    return xyz
