@@ -168,6 +168,29 @@ def back2color(i, blacken_zeros=False):
     else:
         return ((i+0.5)*255).type(torch.ByteTensor)
     
+def convert_occ_to_height(occ, reduce_axis=3):
+    B, C, D, H, W = list(occ.shape)
+    assert(C==1)
+    # note that height increases DOWNWARD in the tensor
+    # (like pixel/camera coordinates)
+    
+    G = list(occ.shape)[reduce_axis]
+    values = torch.linspace(float(G), 1.0, steps=G, dtype=torch.float32, device=occ.device)
+    if reduce_axis==2:
+        # fro view
+        values = values.view(1, 1, G, 1, 1)
+    elif reduce_axis==3:
+        # top view
+        values = values.view(1, 1, 1, G, 1)
+    elif reduce_axis==4:
+        # lateral view
+        values = values.view(1, 1, 1, 1, G)
+    else:
+        assert(False) # you have to reduce one of the spatial dims (2-4)
+    values = torch.max(occ*values, dim=reduce_axis)[0]/float(G)
+    # values = values.view([B, C, D, W])
+    return values
+
 def xy2heatmap(xy, sigma, grid_xs, grid_ys, norm=False):
     # xy is B x N x 2, containing float x and y coordinates of N things
     # grid_xs and grid_ys are B x N x Y x X
@@ -384,11 +407,17 @@ def draw_frame_id_on_vis(vis, frame_id, scale=0.5, left=5, top=20):
 
     frame_str = utils.basic.strnum(frame_id)
     
+    text_color_bg = (0,0,0)
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    text_size, _ = cv2.getTextSize(frame_str, font, scale, 1)
+    text_w, text_h = text_size
+    cv2.rectangle(rgb, (left, top-text_h), (left + text_w, top+1), text_color_bg, -1)
+    
     cv2.putText(
         rgb,
         frame_str,
         (left, top), # from left, from top
-        cv2.FONT_HERSHEY_SIMPLEX,
+        font,
         scale, # font scale (float)
         color, 
         1) # font thickness (int)
@@ -1020,21 +1049,31 @@ class Summ_writer(object):
                 val = None
             
             for t in range(S):
-                if valid[t]:
-                    rgbs_color[t] = self.draw_traj_on_image_py(rgbs_color[t], traj[:t+1], S=S, show_dots=show_dots, cmap=cmap_, val=val, linewidth=linewidth)
+                # if valid[t]:
+                traj_seq = traj[max(t-16,0):t+1]
+                val_seq = 1-np.linspace(0,1,len(traj_seq))
+                if t<2:
+                    val_seq *= 0
+                # print('val_seq', val_seq)
+                # val_seq = 1.0
+                # val_seq = np.arange(8)/8.0
+                # val_seq = val_seq[-len(traj_seq):]
+                # rgbs_color[t] = self.draw_traj_on_image_py(rgbs_color[t], traj_seq, S=S, show_dots=show_dots, cmap=cmap_, val=val_seq, linewidth=linewidth)
+                rgbs_color[t] = self.draw_traj_on_image_py(rgbs_color[t], traj_seq, S=S, show_dots=show_dots, cmap=cmap_, val=val_seq, linewidth=linewidth)
+            # input()
 
-        for i in range(N):
-            if cmap=='onediff' and i==0:
-                cmap_ = 'spring'
-            elif cmap=='onediff':
-                cmap_ = 'winter'
-            else:
-                cmap_ = cmap
-            traj = trajs[:,i] # S,2
-            # vis = visibles[:,i] # S
-            vis = torch.ones_like(traj[:,0]) # S
-            valid = valids[:,i] # S
-            rgbs_color = self.draw_circ_on_images_py(rgbs_color, traj, vis, S=S, show_dots=show_dots, cmap=cmap_, linewidth=linewidth)
+        # for i in range(N):
+        #     if cmap=='onediff' and i==0:
+        #         cmap_ = 'spring'
+        #     elif cmap=='onediff':
+        #         cmap_ = 'winter'
+        #     else:
+        #         cmap_ = cmap
+        #     traj = trajs[:,i] # S,2
+        #     # vis = visibles[:,i] # S
+        #     vis = torch.ones_like(traj[:,0]) # S
+        #     valid = valids[:,i] # S
+        #     rgbs_color = self.draw_circ_on_images_py(rgbs_color, traj, vis, S=S, show_dots=show_dots, cmap=cmap_, linewidth=linewidth)
 
         rgbs = []
         for rgb in rgbs_color:
@@ -1162,7 +1201,10 @@ class Summ_writer(object):
 
         for s in range(S1):
             if val is not None:
-                color = np.array(color_map(val)[:3]) * 255 # rgb
+                # if len(val) == S1:
+                color = np.array(color_map(val[s])[:3]) * 255 # rgb
+                # else:
+                #     color = np.array(color_map(val)[:3]) * 255 # rgb
             else:
                 if maxdist is not None:
                     val = (np.sqrt(np.sum((traj[s]-traj[0])**2))/maxdist).clip(0,1)
@@ -1192,6 +1234,7 @@ class Summ_writer(object):
 
         return rgb
 
+    
 
     def draw_traj_on_images_py(self, rgbs, traj, S=50, linewidth=1, show_dots=False, cmap='coolwarm', maxdist=None):
         # all inputs are numpy tensors
@@ -1366,6 +1409,21 @@ class Summ_writer(object):
         # print('grid_img', grid_img.shape)
         return self.summ_rgb(name, grid_img.byte(), frame_id=frame_id, only_return=only_return)
         
+    def summ_occ(self, name, occ, reduce_axes=[3], bev=False, fro=False, pro=False, frame_id=None, only_return=False):
+        if self.save_this:
+            B, C, D, H, W = list(occ.shape)
+            if bev:
+                reduce_axes = [3]
+            elif fro:
+                reduce_axes = [2]
+            elif pro:
+                reduce_axes = [4]
+            for reduce_axis in reduce_axes:
+                height = convert_occ_to_height(occ, reduce_axis=reduce_axis)
+                if reduce_axis == reduce_axes[-1]:
+                    return self.summ_oned(name=('%s_ax%d' % (name, reduce_axis)), im=height, norm=False, frame_id=frame_id, only_return=only_return)
+                else:
+                    self.summ_oned(name=('%s_ax%d' % (name, reduce_axis)), im=height, norm=False, frame_id=frame_id, only_return=only_return)
     
 def erode2d(im, times=1, device='cuda'):
     weights2d = torch.ones(1, 1, 3, 3, device=device)
