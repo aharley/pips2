@@ -40,6 +40,7 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
 
         self.rgb_paths = []
         self.depth_paths = []
+        self.normal_paths = []
         self.traj_paths = []
         self.annotation_paths = []
         self.full_idxs = []
@@ -81,6 +82,7 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
                         full_idx = ii + np.arange(self.S)*stride
                         self.rgb_paths.append([os.path.join(seq, 'rgbs', 'rgb_%05d.jpg' % idx) for idx in full_idx])
                         self.depth_paths.append([os.path.join(seq, 'depths', 'depth_%05d.png' % idx) for idx in full_idx])
+                        self.normal_paths.append([os.path.join(seq, 'normals', 'normal_%05d.jpg' % idx) for idx in full_idx])
                         self.annotation_paths.append(os.path.join(seq, 'annotations.npz'))
                         self.full_idxs.append(full_idx)
                         if verbose:
@@ -100,6 +102,7 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
 
         rgb_paths = self.rgb_paths[index]
         depth_paths = self.depth_paths[index]
+        normal_paths = self.normal_paths[index]
         full_idx = self.full_idxs[index]
         annotations_path = self.annotation_paths[index]
         annotations = np.load(annotations_path, allow_pickle=True)
@@ -152,6 +155,12 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
             depth16 = cv2.imread(depth_path, cv2.IMREAD_ANYDEPTH)
             depth = depth16.astype(np.float32) / 65535.0 * 1000.0
             depths.append(depth)
+
+        normals = []
+        for normal_path in normal_paths:
+            with Image.open(normal_path) as im:
+                normals.append(np.array(im)[:, :, :3])
+            
 
         H,W,C = rgbs[0].shape
         assert(C==3)
@@ -245,6 +254,7 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
 
         rgbs = torch.from_numpy(np.stack(rgbs, 0)).permute(0,3,1,2) # S,3,H,W
         depths = torch.from_numpy(np.stack(depths, 0)).unsqueeze(1) # S,1,H,W
+        normals = torch.from_numpy(np.stack(normals, 0)).permute(0,3,1,2) # S,3,H,W
         trajs_2d = torch.from_numpy(trajs_2d_full) # S,N,2
         trajs_cam = torch.from_numpy(trajs_cam_full) # S,N,3
         trajs_pix = torch.from_numpy(trajs_pix_full) # S,N,2
@@ -254,9 +264,12 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
         sample = {
             'rgbs': rgbs,
             'depths': depths,
+            'normals': normals,
             'trajs_2d': trajs_2d,
             'trajs_cam': trajs_cam,
             'trajs_pix': trajs_pix,
+            'pix_T_cams': pix_T_cams,
+            'cams_T_world': cams_T_world,
             'visibs': visibs,
             'valids': valids,
         }
