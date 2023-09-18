@@ -425,7 +425,7 @@ class Pips(nn.Module):
         self.delta_block = DeltaBlock(hidden_dim=self.hidden_dim, corr_levels=self.corr_levels, corr_radius=self.corr_radius)
         self.norm = nn.GroupNorm(1, self.latent_dim)
 
-    def forward(self, trajs_e0, rgbs, iters=3, trajs_g=None, vis_g=None, valids=None, sw=None, feat_init=None, is_train=False):
+    def forward(self, trajs_e0, rgbs, iters=3, trajs_g=None, vis_g=None, valids=None, sw=None, feat_init=None, is_train=False, delta_mult=0.5):
         total_loss = torch.tensor(0.0).cuda()
 
         B,S,N,D = trajs_e0.shape
@@ -509,6 +509,9 @@ class Pips(nn.Module):
             flows_ = torch.cat([flows_, flows_[:,-1:]], dim=1) # B*N,S,2
 
             delta_coords_ = self.delta_block(fcorrs_, flows_) # B*N,S,2
+
+            if not is_train and itr >= iters*3/4:
+                delta_coords_ = delta_coords_ * delta_mult
 
             coords = coords + delta_coords_.reshape(B, N, S, 2).permute(0,2,1,3)
 
