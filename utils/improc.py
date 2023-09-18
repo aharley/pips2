@@ -1047,13 +1047,14 @@ class Summ_writer(object):
                 # print('val', val.shape)
             else:
                 val = None
-            
+
             for t in range(S):
                 # if valid[t]:
-                traj_seq = traj[max(t-16,0):t+1]
-                val_seq = 1-np.linspace(0,1,len(traj_seq))
-                if t<2:
-                    val_seq *= 0
+                # traj_seq = traj[max(t-16,0):t+1]
+                traj_seq = traj[max(t-8,0):t+1]
+                val_seq = np.linspace(0,1,len(traj_seq))
+                # if t<2:
+                #     val_seq = np.zeros_like(val_seq)
                 # print('val_seq', val_seq)
                 # val_seq = 1.0
                 # val_seq = np.arange(8)/8.0
@@ -1062,18 +1063,18 @@ class Summ_writer(object):
                 rgbs_color[t] = self.draw_traj_on_image_py(rgbs_color[t], traj_seq, S=S, show_dots=show_dots, cmap=cmap_, val=val_seq, linewidth=linewidth)
             # input()
 
-        # for i in range(N):
-        #     if cmap=='onediff' and i==0:
-        #         cmap_ = 'spring'
-        #     elif cmap=='onediff':
-        #         cmap_ = 'winter'
-        #     else:
-        #         cmap_ = cmap
-        #     traj = trajs[:,i] # S,2
-        #     # vis = visibles[:,i] # S
-        #     vis = torch.ones_like(traj[:,0]) # S
-        #     valid = valids[:,i] # S
-        #     rgbs_color = self.draw_circ_on_images_py(rgbs_color, traj, vis, S=S, show_dots=show_dots, cmap=cmap_, linewidth=linewidth)
+        for i in range(N):
+            if cmap=='onediff' and i==0:
+                cmap_ = 'spring'
+            elif cmap=='onediff':
+                cmap_ = 'winter'
+            else:
+                cmap_ = cmap
+            traj = trajs[:,i] # S,2
+            # vis = visibles[:,i] # S
+            vis = torch.ones_like(traj[:,0]) # S
+            valid = valids[:,i] # S
+            rgbs_color = self.draw_circ_on_images_py(rgbs_color, traj, vis, S=0, show_dots=show_dots, cmap=cmap_, linewidth=linewidth)
 
         rgbs = []
         for rgb in rgbs_color:
@@ -1220,7 +1221,7 @@ class Summ_writer(object):
                          linewidth,
                          cv2.LINE_AA)
             if show_dots:
-                cv2.circle(rgb, (int(traj[s,0]), int(traj[s,1])), linewidth, color, -1)
+                cv2.circle(rgb, (int(traj[s,0]), int(traj[s,1])), linewidth, np.array(color_map(1)[:3])*255, -1)
 
         # if maxdist is not None:
         #     val = (np.sqrt(np.sum((traj[-1]-traj[0])**2))/maxdist).clip(0,1)
@@ -1324,22 +1325,23 @@ class Summ_writer(object):
             color = bremm(traj_)
             # print('color', color)
             color = (color[0]*255).astype(np.uint8) 
-            color = (int(color[0]),int(color[1]),int(color[2]))
+            # color = (int(color[0]),int(color[1]),int(color[2]))
+            color = (int(color[2]),int(color[1]),int(color[0]))
             
-        for s in range(S):
+        for s in range(S1):
             if cmap is not None:
                 color_map = cm.get_cmap(cmap)
                 # color = np.array(color_map(s/(S-1))[:3]) * 255 # rgb
-                color = np.array(color_map((s)/max(1,float(S-2)))[:3]) * 255 # rgb
+                color = np.array(color_map((s+1)/max(1,float(S-1)))[:3]) * 255 # rgb
                 # color = color.astype(np.uint8)
                 # color = (color[0], color[1], color[2])
                 # print('color', color)
             # import ipdb; ipdb.set_trace()
                 
-            cv2.circle(rgbs[s], (int(traj[s,0]), int(traj[s,1])), linewidth+2, color, -1)
-            vis_color = int(np.squeeze(vis[s])*255)
-            vis_color = (vis_color,vis_color,vis_color)
-            cv2.circle(rgbs[s], (int(traj[s,0]), int(traj[s,1])), linewidth+1, vis_color, -1)
+            cv2.circle(rgbs[s], (int(traj[s,0]), int(traj[s,1])), linewidth+1, color, -1)
+            # vis_color = int(np.squeeze(vis[s])*255)
+            # vis_color = (vis_color,vis_color,vis_color)
+            # cv2.circle(rgbs[s], (int(traj[s,0]), int(traj[s,1])), linewidth+1, vis_color, -1)
                 
         return rgbs
 
