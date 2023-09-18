@@ -153,9 +153,9 @@ def run_model(model, d, device, iters=8, sw=None, is_train=True, use_augs=True):
     # mix with gt a random amount
     coeff = torch.from_numpy(np.random.uniform(0, 1, (B,1,N,1))).float().to(trajs_g.device)
     trajs_e0 = trajs_e0*coeff + trajs_g*(1-coeff)
-    # use zero-velocity init for 10%
+    # use zero-velocity init for some
     trajs_z = trajs_g[:,0:1].repeat(1,S,1,1)
-    mask = (torch.from_numpy(np.random.uniform(0, 1, (B,1,N,1))).float().to(trajs_g.device)>0.1).float()
+    mask = (torch.from_numpy(np.random.uniform(0, 1, (B,1,N,1))).float().to(trajs_g.device)>0.5).float()
     trajs_e0 = trajs_e0*mask + trajs_z*(1-mask)
     # reset zeroth on all
     trajs_e0[:,0:1] = trajs_g[:,0:1]
@@ -249,7 +249,7 @@ def run_model(model, d, device, iters=8, sw=None, is_train=True, use_augs=True):
             '0_inputs/kps_gv_on_rgbs',
             trajs_g_clamp[0:1,::4],
             utils.improc.preprocess_color(outs),
-            valids=valids[0:1,::4],
+            valids=valids[0:1,::4]*vis_g[0:1,::4],
             cmap='spring', linewidth=2)
 
         outs = sw.summ_pts_on_rgbs(
@@ -308,23 +308,8 @@ def main(
     # train from scratch on pointodyssey.
     # on val steps, unroll the inference.
 
-    exp_name = 'aa00' # go
-    exp_name = 'aa01' # update stats
-    exp_name = 'aa02' # train overnight on partial data
-    exp_name = 'aa03' # more data; val_freq 100
-    exp_name = 'aa04' # init from aa03; train with flow bug fixed
-    exp_name = 'aa05' # init from aa04; blue
-    exp_name = 'aa06' # init from aa04; train with ~4k ae
-    exp_name = 'aa07' # init from aa06; log1k
-    exp_name = 'aa08' # N=64
-    exp_name = 'aa09' # debug stats
-    exp_name = 'aa10' # blue  < still median_l2 seems missing
-    exp_name = 'aa11' # debug stats more
-    exp_name = 'aa12' # init aa10 
-    
-    init_dir = '4_36_128_i6_5e-4s_A_aa04_135753'
-    init_dir = '2_36_32_i6_5e-4s_A_aa06_180026'
-    init_dir = '2_36_64_i6_5e-4s_A_aa10_191220'
+    exp_name = 'aa00' # copy from dev repo
+    exp_name = 'aa01' # clean up
 
     if quick: # (debug)
         B = 1
@@ -332,9 +317,9 @@ def main(
         max_iters = 1000
         shuffle = False
         val_freq = 10
-        n_pool = 10
+        n_pool = 100
         use_augs = False
-        cache_len = 3 # overfit on this many
+        cache_len = 0 # overfit on this many
         cache_freq = 0
         save_freq = 99999999
         
@@ -393,10 +378,11 @@ def main(
     model = torch.nn.DataParallel(model, device_ids=device_ids)
 
     parameters = list(model.parameters())
+    weight_decay = 1e-6
     if use_scheduler:
-        optimizer, scheduler = fetch_optimizer(lr, 1e-6, 1e-8, max_iters, model.parameters())
+        optimizer, scheduler = fetch_optimizer(lr, weight_decay, 1e-8, max_iters, model.parameters())
     else:
-        optimizer = torch.optim.AdamW(parameters, lr=lr, weight_decay=1e-6)
+        optimizer = torch.optim.AdamW(parameters, lr=lr, weight_decay=weight_decay) 
         scheduler = None
 
     utils.misc.count_parameters(model)
