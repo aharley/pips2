@@ -42,15 +42,16 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
                  N=32,
                  strides=[1,2,3,4],
                  crop_size=(368, 496),
+                 req_full=False,
                  quick=False,
                  verbose=False,
-                 load_3d=False,
     ):
         print('loading pointodyssey dataset...')
 
         self.S = S
         self.N = N
-        self.load_3d = load_3d
+        self.req_full = False
+        self.verbose = verbose
 
         self.use_augs = use_augs
         self.dset = dset
@@ -73,7 +74,7 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
                 self.sequences.append(seq)
 
         self.sequences = sorted(self.sequences)
-        if verbose:
+        if self.verbose:
             print(self.sequences)
         print('found %d unique videos in %s (dset=%s)' % (len(self.sequences), dataset_location, dset))
         
@@ -88,7 +89,7 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
             annotations_path = os.path.join(seq, 'annotations.npz')
             if os.path.isfile(annotations_path):
 
-                if verbose: 
+                if self.verbose: 
                     print('seq', seq)
                     
                 for stride in strides:
@@ -97,11 +98,11 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
                         self.rgb_paths.append([os.path.join(seq, 'rgbs', 'rgb_%05d.jpg' % idx) for idx in full_idx])
                         self.annotation_paths.append(os.path.join(seq, 'annotations.npz'))
                         self.full_idxs.append(full_idx)
-                        if verbose:
+                        if self.verbose:
                             sys.stdout.write('.')
                             sys.stdout.flush()
                         else:
-                            if verbose:
+                            if self.verbose:
                                 sys.stdout.write('v')
                                 sys.stdout.flush()
 
@@ -170,8 +171,14 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
         assert(D==2)
         assert(S==self.S)
 
-        if N < self.N//2:
-            print('returning before cropping: N=%d; need at least N=%d' % (N, self.N//2))
+        if self.req_full:
+            min_N = self.N//2
+        else:
+            min_N = self.N
+
+        if N < min_N:
+            if self.verbose:
+                print('returning before cropping: N=%d; need at least N=%d' % (N, min_N))
             return None, False
 
         # get rid of infs and nans
@@ -260,12 +267,14 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
         
         N = trajs.shape[1]
         
-        if N < self.N//2:
-            # print('N=%d' % (N))
+        if N < min_N:
+            if self.verbose:
+                print('returning after cropping: N=%d; need at least N=%d' % (N, min_N))
             return None, False
-        
+
         if N < self.N:
-            print('N=%d; ideally we want N=%d, but we will pad' % (N, self.N))
+            if self.verbose:
+                print('N=%d; ideally we want N=%d, but we will pad' % (N, self.N))
 
         if N > self.N*4:
             # fps based on position and motion
@@ -435,14 +444,10 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
         h_flipped = False
         v_flipped = False
         if self.do_flip:
-            # h flip
             if np.random.rand() < self.h_flip_prob:
-                # print('h flip')
                 h_flipped = True
                 rgbs = [rgb[:,::-1] for rgb in rgbs]
-            # v flip
             if np.random.rand() < self.v_flip_prob:
-                # print('v flip')
                 v_flipped = True
                 rgbs = [rgb[::-1] for rgb in rgbs]
         if h_flipped:
