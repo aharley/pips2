@@ -118,19 +118,19 @@ We provide evaluation scripts for all of the datasets reported in the paper. The
 
 For each point with a valid annotation in frame0, we track it to the end of the video (<200 frames). The data comes from the [DeepMind TAP-NET repo](https://github.com/google-deepmind/tapnet#tap-vid-benchmark). 
 
-With the reference model, `test_on_tap.py` should yield `d_avg 70.5; survival_16 90.4; median_l2 5.0`.
+With the reference model, `test_on_tap.py` should yield `d_avg 70.6; survival_16 89.3; median_l2 6.9`.
 
 **CroHD**
 
 We chop the videos in to 1000-frame clips, and track heads from the beginning to the end. The data comes from the "Get all data" link on the [Head Tracking 21 MOT Challenge](https://motchallenge.net/data/Head_Tracking_21/) page. Downloading and unzipping that should give you the folders HT21 and HT21Labels, which our dataloader relies on.
 
-With the reference model, `test_on_cro.py` should yield `d_avg 43.5; survival_16 56.6; median_l2 16.1`.
+With the reference model, `test_on_cro.py` should yield `d_avg 50.6.5; survival_16 50.6; median_l2 19.7`.
 
 **PointOdyssey test set**
 
 For each point with a valid annotation in frame0, we track it to the end of the video (~2k frames). Note that here we use the `pointodysseydataset_fullseq.py` dataloader, and we load `S=128` frames at a time, because 2k frames will not fit in memory. 
 
-With the reference model, `test_on_pod.py` should yield `d_avg 31.3; survival_16 32.8; median_l2 32.9`. 
+With the reference model, `test_on_pod.py` should yield `d_avg 31.3; survival_16 32.7; median_l2 33.0`. 
 
 
 ## Citation
