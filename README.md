@@ -39,7 +39,7 @@ For each 8-frame subsequence, the model will return `trajs_e`. This is estimated
 
 In the tensorboard for `logs_demo/` you should be able to find visualizations like this:
 
-<img src='https://pointodyssey.com/camel_compressed.gif'>
+<img src='https://pointodyssey.com/assets/camel_compressed.gif'>
 
 
 ## PointOdyssey 
