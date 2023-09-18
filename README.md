@@ -27,7 +27,19 @@ sh get_reference_model.sh
 
 Or, use the dropbox link inside that file. 
 
-...
+To try this model on a sample video, run this:
+
+```
+python demo.py
+```
+
+This will run the model on the video included in `stock_videos/`.
+
+For each 8-frame subsequence, the model will return `trajs_e`. This is estimated trajectory data for a set of points, shaped `B,S,N,2`, where `S` is the sequence length and `N` is the number of particles, and 2 is the x and y coordinates. The script will also produce tensorboard logs with visualizations, which go into `logs_demo/`.
+
+In the tensorboard for `logs_demo/` you should be able to find visualizations like this:
+
+<img src='https://pointodyssey.com/camel_compressed.gif'>
 
 
 ## PointOdyssey 
