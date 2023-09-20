@@ -123,7 +123,7 @@ def main(
             just_gif=True)
 
         rgb_seq = rgbs[si:si+S]
-        rgb_seq = torch.from_numpy(rgb_seq).permute(0,3,1,2) # S,3,H,W
+        rgb_seq = torch.from_numpy(rgb_seq).permute(0,3,1,2).to(torch.float32) # S,3,H,W
         rgb_seq = F.interpolate(rgb_seq, image_size, mode='bilinear').unsqueeze(0) # 1,S,3,H,W
         
         with torch.no_grad():
