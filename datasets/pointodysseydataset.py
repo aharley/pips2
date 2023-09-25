@@ -70,8 +70,9 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
 
         for subdir in self.subdirs:
             for seq in glob.glob(os.path.join(subdir, "*")):
-                seq_name = seq.split('/')[-1]
-                self.sequences.append(seq)
+                if os.path.isdir(seq):
+                    seq_name = seq.split('/')[-1]
+                    self.sequences.append(seq)
 
         self.sequences = sorted(self.sequences)
         if self.verbose:
