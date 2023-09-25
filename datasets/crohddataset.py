@@ -164,7 +164,7 @@ class CrohdDataset(torch.utils.data.Dataset):
         vis_ok1 = visibs[1] > 0 # N
         score_ok0 = valids[0] > 0 # N
         score_ok1 = valids[1] > 0 # N
-        mot_ok = np.sum(np.linalg.norm(trajs[1:] - trajs[:-1]), axis=0) > 150 # N
+        mot_ok = np.sum(np.linalg.norm(trajs[1:] - trajs[:-1], axis=-1), axis=0) > 150 # N
         all_ok = vis_ok0 * vis_ok1 * score_ok0 * score_ok1 * mot_ok
         print('np.sum(all_ok)', np.sum(all_ok))
 
