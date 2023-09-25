@@ -164,7 +164,7 @@ def run_model(model, d, device, iters=8, sw=None, is_train=True, use_augs=True):
     ate0 = torch.norm(trajs_e0 - trajs_g, dim=-1) # B,S,N
     ate0_all = utils.basic.reduce_masked_mean(ate0, valids, dim=[1,2])
     
-    preds, preds_anim, _, loss = model(trajs_e0, rgbs, iters=iters, trajs_g=trajs_g, vis_g=vis_g, valids=valids)
+    preds, preds_anim, _, loss = model(trajs_e0, rgbs, iters=iters, trajs_g=trajs_g, vis_g=vis_g, valids=valids, is_train=is_train)
     trajs_e = preds[-1]
 
     total_loss += loss
