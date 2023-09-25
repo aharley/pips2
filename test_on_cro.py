@@ -16,11 +16,11 @@ from datasets.crohddataset import CrohdDataset
 def create_pools(n_pool=1000):
     pools = {}
     pool_names = [
-        'd1',
-        'd2',
-        'd4',
-        'd8',
-        'd16',
+        'd_1',
+        'd_2',
+        'd_4',
+        'd_8',
+        'd_16',
         'd_avg',
         'median_l2',
         'survival',
@@ -184,6 +184,7 @@ def main(
     exp_name = 'cro00' # copy from dev repo
     exp_name = 'cro01' # clean up
     exp_name = 'cro02' # survival thr 16
+    
 
     assert(B==1) # B>1 not implemented here
     assert(image_size[0] % 32 == 0)

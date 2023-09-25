@@ -16,11 +16,11 @@ from datasets.tapviddataset_fullseq import TapVidDavis
 def create_pools(n_pool=1000):
     pools = {}
     pool_names = [
-        'd1',
-        'd2',
-        'd4',
-        'd8',
-        'd16',
+        'd_1',
+        'd_2',
+        'd_4',
+        'd_8',
+        'd_16',
         'd_avg',
         'median_l2',
         'survival',
@@ -161,10 +161,6 @@ def main(
     
     exp_name = 'tap00' # copy from dev repo
     exp_name = 'tap01' # clean up
-    exp_name = 'tap02' # clean the net
-    exp_name = 'tap03' # median within each seq; print it too
-    exp_name = 'tap04' # vis :4
-    exp_name = 'tap05' # refmodel
 
     assert(B==1) # B>1 not implemented here
     assert(image_size[0] % 32 == 0)

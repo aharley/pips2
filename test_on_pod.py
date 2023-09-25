@@ -16,11 +16,11 @@ from datasets.pointodysseydataset_fullseq import PointOdysseyDataset
 def create_pools(n_pool=1000):
     pools = {}
     pool_names = [
-        'd1',
-        'd2',
-        'd4',
-        'd8',
-        'd16',
+        'd_1',
+        'd_2',
+        'd_4',
+        'd_8',
+        'd_16',
         'd_avg',
         'median_l2',
         'survival',
@@ -179,6 +179,8 @@ def main(
     exp_name = 'pod01' # pod test
     exp_name = 'pod02' # clean up
     exp_name = 'pod03' # survival thr 16
+    exp_name = 'pod04' # refmodel repeat
+    exp_name = 'pod05' # fix bug with d_ stats
 
     assert(B==1) # B>1 not implemented here
     assert(image_size[0] % 32 == 0)
