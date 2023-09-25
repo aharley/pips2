@@ -511,6 +511,7 @@ class Pips(nn.Module):
             delta_coords_ = self.delta_block(fcorrs_, flows_) # B*N,S,2
 
             if not is_train and itr >= iters*3/4:
+                # this beautifies the results a bit, but does not really help perf
                 delta_coords_ = delta_coords_ * delta_mult
 
             coords = coords + delta_coords_.reshape(B, N, S, 2).permute(0,2,1,3)
