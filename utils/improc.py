@@ -1001,7 +1001,7 @@ class Summ_writer(object):
         return self.summ_rgbs(name, rgbs, only_return=only_return, frame_ids=frame_ids)
     
     
-    def summ_traj2ds_on_rgbs(self, name, trajs, rgbs, valids=None, frame_ids=None, only_return=False, show_dots=True, cmap='coolwarm', vals=None, linewidth=1):
+    def summ_traj2ds_on_rgbs(self, name, trajs, rgbs, valids=None, frame_ids=None, only_return=False, show_dots=False, cmap='coolwarm', vals=None, linewidth=1):
         # trajs is B, S, N, 2
         # rgbs is B, S, C, H, W
         B, S, C, H, W = rgbs.shape
@@ -1142,7 +1142,7 @@ class Summ_writer(object):
 
         return self.summ_rgbs(name, rgbs, only_return=only_return, frame_ids=frame_ids)
 
-    def summ_traj2ds_on_rgb(self, name, trajs, rgb, valids=None, show_dots=True, show_lines=True, frame_id=None, only_return=False, cmap='coolwarm', linewidth=1):
+    def summ_traj2ds_on_rgb(self, name, trajs, rgb, valids=None, show_dots=False, show_lines=True, frame_id=None, only_return=False, cmap='coolwarm', linewidth=1):
         # trajs is B, S, N, 2
         # rgb is B, C, H, W
         B, C, H, W = rgb.shape
