@@ -907,7 +907,7 @@ class Summ_writer(object):
             else:
                 label_ = label
             
-            idx = (seg == label)
+            idx = (seg == label+1)
             r[idx] = label_colors[label_][0]
             g[idx] = label_colors[label_][1]
             b[idx] = label_colors[label_][2]
