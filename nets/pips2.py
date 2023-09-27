@@ -463,17 +463,17 @@ class Pips(nn.Module):
         
         coords_bak = coords.clone()
 
-        # if not is_train:
         coords[:,0] = coords_bak[:,0] # lock coord0 for target
         
         coord_predictions1 = [] # for loss
         coord_predictions2 = [] # for vis
 
         fcorr_fn1.corr(feats1) # we only need to run this corr once
+
+        coord_predictions2.append(coords.detach() * self.stride)
         
         for itr in range(iters):
             coords = coords.detach()
-            coord_predictions2.append(coords.detach() * self.stride)
 
             if itr >= 1:
                 # timestep indices
@@ -510,20 +510,18 @@ class Pips(nn.Module):
 
             delta_coords_ = self.delta_block(fcorrs_, flows_) # B*N,S,2
 
-            if beautify:
+            if beautify and itr > 3*iters//4:
                 # this smooths the results a bit, but does not really help perf
-                delta_coords_ = delta_coords_ * delta_mult
+                delta_coords_ = delta_coords_ * 0.5
 
             coords = coords + delta_coords_.reshape(B, N, S, 2).permute(0,2,1,3)
 
             coord_predictions1.append(coords * self.stride)
-            coord_predictions2.append(coords * self.stride)
 
             coords[:,0] = coords_bak[:,0] # lock coord0 for target
-            
+            coord_predictions2.append(coords * self.stride)
             
         # pause at the end, to make the summs more interpretable
-        coord_predictions2.append(coords * self.stride)
         coord_predictions2.append(coords * self.stride)
 
         if trajs_g is not None:
