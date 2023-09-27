@@ -7,7 +7,7 @@ import utils.geom
 import utils.misc
 import random
 from utils.basic import print_, print_stats
-from datasets.pointodysseydataset import PointOdysseyDataset
+from datasets.pointodysseydataset_seg import PointOdysseyDataset
 import torch
 import torch.nn as nn
 from tensorboardX import SummaryWriter
@@ -25,11 +25,13 @@ torch.manual_seed(125)
     
 def run_model(d, device, sw=None):
     rgbs = d['rgbs'].to(device).float() # B,S,C,H,W
+    masks = d['masks'].to(device).float() # B,S,1,H,W
     trajs_g = d['trajs'].to(device).float() # B,S,N,2
     vis_g = d['visibs'].to(device).float() # B,S,N
     valids = d['valids'].to(device).float() # B,S,N
 
     print_stats('rgbs', rgbs)
+    print_stats('masks', masks)
     print_stats('trajs_g', trajs_g)
     print_stats('vis_g', vis_g)
     print_stats('valids', valids)
@@ -38,6 +40,7 @@ def run_model(d, device, sw=None):
     assert(C==3)
     B, S, N, D = trajs_g.shape
     assert(D==2)
+    
     
     if sw is not None and sw.save_this:
 
@@ -48,6 +51,17 @@ def run_model(d, device, sw=None):
         # sw.summ_traj2ds_on_rgbs('0_inputs/trajs_g_on_rgbs', trajs_g[0:1], prep_rgbs, valids=valids[0:1])
         sw.summ_traj2ds_on_rgbs2('0_inputs/trajs_g_on_rgbs2', trajs_g[0:1], vis_g[0:1], utils.improc.preprocess_color(rgbs[0:1]), valids=valids[0:1])
 
+        mask_max = torch.max(masks)
+        masks_vis = masks/(1e-4 + mask_max)
+        sw.summ_oneds('0_inputs/masks', masks_vis.unbind(1), norm=False)
+
+        label_colors = utils.improc.get_n_colors(int(mask_max.item())+1, sequential=False)
+
+        mask_vis = []
+        for si in range(S):
+            mask_vis.append(sw.summ_seg('', masks[:,si,0], only_return=True, label_colors=label_colors))
+        sw.summ_rgbs('0_inputs/masks_colored', mask_vis)
+        
         # for the kp vis, we will clamp so that we can see everything
         trajs_g_clamp = trajs_g.clone()
         trajs_g_clamp[:,:,:,0] = trajs_g_clamp[:,:,:,0].clip(0,W-1)
