@@ -42,7 +42,7 @@ def run_model(model, rgbs, S_max=128, N=64, iters=16, sw=None):
 
     iter_start_time = time.time()
     
-    preds, preds_anim, _, _ = model(trajs_e, rgbs, iters=iters, feat_init=None, delta_mult=0.5)
+    preds, preds_anim, _, _ = model(trajs_e, rgbs, iters=iters, feat_init=None, beautify=True)
     trajs_e = preds[-1]
 
     iter_time = time.time()-iter_start_time
