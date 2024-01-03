@@ -90,7 +90,6 @@ class ExportDataset(torch.utils.data.Dataset):
                 A.CLAHE(clip_limit=2),
                 A.Sharpen(),
                 A.Emboss(),
-                A.RandomBrightnessContrast(),
             ], p=0.2),
             A.RGBShift(p=0.5),
             A.RandomBrightnessContrast(p=0.5),
@@ -106,7 +105,7 @@ class ExportDataset(torch.utils.data.Dataset):
         
         rgbs = read_mp4(str(folder / 'rgb.mp4'))
 
-        if len(rgbs)==0:
+        if len(rgbs) < self.S:
             print('corrupted mp4 in %s; returning fake' % folder)
             fake_sample = {
                 'rgbs': np.zeros((self.S,3,self.H,self.W), dtype=np.uint8), 
@@ -137,6 +136,8 @@ class ExportDataset(torch.utils.data.Dataset):
 
         rgbs = rgbs.transpose(0,3,1,2)
         rgbs = rgbs[:,::-1].copy() # BGR->RGB
+
+        # print('rgbs, track', rgbs.shape, track.shape)
 
         return {
             'rgbs': rgbs,
