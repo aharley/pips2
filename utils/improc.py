@@ -1049,6 +1049,89 @@ class Summ_writer(object):
                 val = None
 
             for t in range(S):
+                if valid[t]:
+                    # traj_seq = traj[max(t-16,0):t+1]
+                    traj_seq = traj[max(t-8,0):t+1]
+                    val_seq = np.linspace(0,1,len(traj_seq))
+                    # if t<2:
+                    #     val_seq = np.zeros_like(val_seq)
+                    # print('val_seq', val_seq)
+                    # val_seq = 1.0
+                    # val_seq = np.arange(8)/8.0
+                    # val_seq = val_seq[-len(traj_seq):]
+                    # rgbs_color[t] = self.draw_traj_on_image_py(rgbs_color[t], traj_seq, S=S, show_dots=show_dots, cmap=cmap_, val=val_seq, linewidth=linewidth)
+                    rgbs_color[t] = self.draw_traj_on_image_py(rgbs_color[t], traj_seq, S=S, show_dots=show_dots, cmap=cmap_, val=val_seq, linewidth=linewidth)
+            # input()
+
+        for i in range(N):
+            if cmap=='onediff' and i==0:
+                cmap_ = 'spring'
+            elif cmap=='onediff':
+                cmap_ = 'winter'
+            else:
+                cmap_ = cmap
+            traj = trajs[:,i] # S,2
+            # vis = visibles[:,i] # S
+            vis = torch.ones_like(traj[:,0]) # S
+            valid = valids[:,i] # S
+            rgbs_color = self.draw_circ_on_images_py(rgbs_color, traj, vis, S=0, show_dots=show_dots, cmap=cmap_, linewidth=linewidth)
+
+        rgbs = []
+        for rgb in rgbs_color:
+            rgb = torch.from_numpy(rgb).permute(2, 0, 1).unsqueeze(0)
+            rgbs.append(preprocess_color(rgb))
+
+        return self.summ_rgbs(name, rgbs, only_return=only_return, frame_ids=frame_ids)
+
+
+    def summ_traj2ds_on_rgbs_py(self, name, trajs, rgbs_color, valids=None, frame_ids=None, only_return=False, show_dots=False, cmap='coolwarm', vals=None, linewidth=1):
+        # trajs is B, S, N, 2
+        # rgbs is B, S, C, H, W
+        # B, S, C, H, W = rgbs.shape
+        B, S, N, D = trajs.shape
+        # assert(S==S2)
+
+        # rgbs = rgbs[0] # S, C, H, W
+        trajs = trajs[0] # S, N, 2
+        if valids is None:
+            valids = torch.ones_like(trajs[:,:,0]) # S, N
+        else:
+            valids = valids[0]
+
+        # print('trajs', trajs.shape)
+        # print('valids', valids.shape)
+        
+        if vals is not None:
+            vals = vals[0] # N
+            # print('vals', vals.shape)
+        
+        # rgbs_color = []
+        # for rgb in rgbs:
+        #     rgb = back2color(rgb).detach().cpu().numpy() 
+        #     rgb = np.transpose(rgb, [1, 2, 0]) # put channels last
+        #     rgbs_color.append(rgb) # each element 3 x H x W
+
+        for i in range(N):
+            if cmap=='onediff' and i==0:
+                cmap_ = 'spring'
+            elif cmap=='onediff':
+                cmap_ = 'winter'
+            else:
+                cmap_ = cmap
+            traj = trajs[:,i].long().detach().cpu().numpy() # S, 2
+            valid = valids[:,i].long().detach().cpu().numpy() # S
+            
+            # print('traj', traj.shape)
+            # print('valid', valid.shape)
+            
+            if vals is not None:
+                # val = vals[:,i].float().detach().cpu().numpy() # []
+                val = vals[i].float().detach().cpu().numpy() # []
+                # print('val', val.shape)
+            else:
+                val = None
+
+            for t in range(S):
                 # if valid[t]:
                 # traj_seq = traj[max(t-16,0):t+1]
                 traj_seq = traj[max(t-8,0):t+1]
@@ -1083,6 +1166,7 @@ class Summ_writer(object):
 
         return self.summ_rgbs(name, rgbs, only_return=only_return, frame_ids=frame_ids)
 
+    
     def summ_traj2ds_on_rgbs2(self, name, trajs, visibles, rgbs, valids=None, frame_ids=None, only_return=False, show_dots=True, cmap=None, linewidth=1):
         # trajs is B, S, N, 2
         # rgbs is B, S, C, H, W
@@ -1202,10 +1286,7 @@ class Summ_writer(object):
 
         for s in range(S1):
             if val is not None:
-                # if len(val) == S1:
                 color = np.array(color_map(val[s])[:3]) * 255 # rgb
-                # else:
-                #     color = np.array(color_map(val)[:3]) * 255 # rgb
             else:
                 if maxdist is not None:
                     val = (np.sqrt(np.sum((traj[s]-traj[0])**2))/maxdist).clip(0,1)
