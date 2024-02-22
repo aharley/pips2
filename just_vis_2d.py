@@ -7,7 +7,7 @@ import utils.geom
 import utils.misc
 import random
 from utils.basic import print_, print_stats
-from datasets.pointodysseydataset_seg import PointOdysseyDataset
+from datasets.pointodysseydataset import PointOdysseyDataset
 import torch
 import torch.nn as nn
 from tensorboardX import SummaryWriter
@@ -19,28 +19,18 @@ from einops import rearrange, repeat
 from einops.layers.torch import Rearrange, Reduce
 from torch.utils.data import Dataset, DataLoader
 
-random.seed(125)
-np.random.seed(125)
-torch.manual_seed(125)
-    
 def run_model(d, device, sw=None):
     rgbs = d['rgbs'].to(device).float() # B,S,C,H,W
     masks = d['masks'].to(device).float() # B,S,1,H,W
+    edges = d['edges'].to(device).float() # B,S,1,H,W
     trajs_g = d['trajs'].to(device).float() # B,S,N,2
     vis_g = d['visibs'].to(device).float() # B,S,N
     valids = d['valids'].to(device).float() # B,S,N
-
-    print_stats('rgbs', rgbs)
-    print_stats('masks', masks)
-    print_stats('trajs_g', trajs_g)
-    print_stats('vis_g', vis_g)
-    print_stats('valids', valids)
 
     B, S, C, H, W = rgbs.shape
     assert(C==3)
     B, S, N, D = trajs_g.shape
     assert(D==2)
-    
     
     if sw is not None and sw.save_this:
 
@@ -48,16 +38,15 @@ def run_model(d, device, sw=None):
         prep_grays = torch.mean(prep_rgbs, dim=2, keepdim=True).repeat(1, 1, 3, 1, 1)
 
         sw.summ_traj2ds_on_rgb('0_inputs/trajs_g_on_rgb', trajs_g[0:1], prep_rgbs.mean(dim=1), valids=valids[0:1], cmap='winter')
-        # sw.summ_traj2ds_on_rgbs('0_inputs/trajs_g_on_rgbs', trajs_g[0:1], prep_rgbs, valids=valids[0:1])
+        sw.summ_traj2ds_on_rgbs('0_inputs/trajs_g_on_rgbs', trajs_g[0:1], prep_rgbs, valids=valids[0:1], cmap='winter')
         sw.summ_traj2ds_on_rgbs2('0_inputs/trajs_g_on_rgbs2', trajs_g[0:1], vis_g[0:1], utils.improc.preprocess_color(rgbs[0:1]), valids=valids[0:1])
 
-        mask_max = torch.max(masks)
-        masks_vis = masks/(1e-4 + mask_max)
-        sw.summ_oneds('0_inputs/masks', masks_vis.unbind(1), norm=False)
-
-        label_colors = utils.improc.get_n_colors(int(mask_max.item())+1, sequential=False)
+        edges_vis = edges / 255.0
+        sw.summ_oneds('0_inputs/edges', edges_vis.unbind(1), norm=False)
 
         mask_vis = []
+        mask_max = torch.max(masks)
+        label_colors = utils.improc.get_n_colors(int(mask_max.item())+1, sequential=False)
         for si in range(S):
             mask_vis.append(sw.summ_seg('', masks[:,si,0], only_return=True, label_colors=label_colors))
         sw.summ_rgbs('0_inputs/masks_colored', mask_vis)
@@ -80,6 +69,13 @@ def run_model(d, device, sw=None):
             valids=valids[0:1]*vis_g[0:1],
             cmap='spring', linewidth=2)
 
+        sw.summ_pts_on_rgbs(
+            '0_inputs/kps_gv_on_rgb0',
+            trajs_g_clamp[0:1,0:1],
+            utils.improc.preprocess_color(outs[0:1,0:1]),
+            valids=valids[0:1,0:1]*vis_g[0:1,0:1],
+            cmap='spring', linewidth=2)
+
     return None 
     
 
@@ -88,16 +84,17 @@ def main(
         dset='train',
         B=1, # batchsize 
         S=32, # seqlen
-        N=128, # number of points per clip
-        crop_size=(256,448), 
+        N=512, # number of points per clip
+        resize_size=(256+64,384+64), 
+        crop_size=(256,384), 
         use_augs=False, # resizing/jittering/color/blur augs
         shuffle=False, # dataset shuffling
         log_dir='./logs_just_vis_2d',
-        dataset_location='/orion/group/point_odyssey', 
+        dataset_location='/orion/group/point_odyssey_v1.2', 
         log_freq=1,
-        max_iters=10,
+        max_iters=5,
         quick=False,
-        dname=None,
+        verbose=True,
 ):
     device = 'cpu:0'
 
@@ -105,11 +102,15 @@ def main(
     # load pointodyssey data and visualize it
     
     exp_name = 'jv00' # copy from dev repo
-    exp_name = 'jv01' # fix color bug...
+    exp_name = 'jv01' # fix color bug
+    exp_name = 'jv02' # add edge check
+    exp_name = 'jv03' # clean up for v1.2
     
     import socket
     host = socket.gethostname()
 
+    assert(resize_size[0] > crop_size[0])
+    assert(resize_size[1] > crop_size[1])
     assert(crop_size[0] % 32 == 0)
     assert(crop_size[1] % 32 == 0)
     
@@ -117,7 +118,8 @@ def main(
     model_name = "%d_%d_%d" % (B, S, N)
     if use_augs:
         model_name += "_A"
-    model_name += "_%s" % exp_name
+    model_name += "_" + dset
+    model_name += "_" + exp_name
     import datetime
     model_date = datetime.datetime.now().strftime('%H:%M:%S')
     model_name = model_name + '_' + model_date
@@ -134,9 +136,10 @@ def main(
         S=S,
         N=N,
         use_augs=use_augs,
+        resize_size=resize_size,
         crop_size=crop_size,
         quick=quick,
-        verbose=True,
+        verbose=verbose,
     )
     dataloader_t = DataLoader(
         dataset_t,

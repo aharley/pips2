@@ -43,7 +43,6 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
         self.subdirs = []
         self.sequences = []
 
-        assert(dset in ['train', 'val', 'test'])
         self.subdirs.append(os.path.join(dataset_location, dset))
 
         for subdir in self.subdirs:
@@ -52,6 +51,8 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
                 self.sequences.append(seq)
 
         self.sequences = sorted(self.sequences)
+        print('sequences', self.sequences)
+        
         if verbose:
             print(self.sequences)
         print('found %d unique videos in %s (dset=%s)' % (len(self.sequences), dataset_location, dset))
@@ -59,12 +60,12 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
         print('loading trajectories...')
         for seq in self.sequences:
             rgb_path = os.path.join(seq, 'rgbs')
-            annotations_path = os.path.join(seq, 'annotations.npz')
+            annotations_path = os.path.join(seq, 'anno.npz')
             assert(os.path.isfile(annotations_path))
 
             full_idx = np.arange(len(os.listdir(rgb_path)))
             self.rgb_paths.append([os.path.join(seq, 'rgbs', 'rgb_%05d.jpg' % (idx)) for idx in full_idx])
-            self.annotation_paths.append(os.path.join(seq, 'annotations.npz'))
+            self.annotation_paths.append(os.path.join(seq, 'anno.npz'))
             self.full_idxs.append(full_idx)
 
             if verbose:
@@ -82,6 +83,8 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
         seq = self.sequences[index]
         rgb_paths = self.rgb_paths[index]
         full_idx = self.full_idxs[index]
+
+        print('seq', seq)
         
         annotations_path = self.annotation_paths[index]
         annotations = np.load(annotations_path, allow_pickle=True)
@@ -95,14 +98,15 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
 
         valids_xy = np.ones_like(trajs)
 
-        # get rid of infs and nans
+        # some data is valid in 3d but invalid in 2d
+        # here we will filter to the data which is valid in 2d
+        valids_xy = np.ones_like(trajs)
         inf_idx = np.where(np.isinf(trajs))
         trajs[inf_idx] = 0
         valids_xy[inf_idx] = 0
         nan_idx = np.where(np.isnan(trajs))
         trajs[nan_idx] = 0
         valids_xy[nan_idx] = 0
-
         inv_idx = np.where(np.sum(valids_xy, axis=2)<2) # S,N
         visibs[inv_idx] = 0
         valids[inv_idx] = 0
@@ -125,18 +129,28 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
         trajs = trajs[:,vis0]
         visibs = visibs[:,vis0]
         valids = valids[:,vis0]
-
+        print('trajs vis0', trajs.shape)
+        
         # ensure that the point is good in at least K frames total
+        K = 8
         vis_and_val = valids * visibs
-        val_ok = np.sum(vis_and_val, axis=0) >= 8
+        val_ok = np.sum(vis_and_val, axis=0) >= K
         trajs = trajs[:,val_ok]
         visibs = visibs[:,val_ok]
         valids = valids[:,val_ok]
+        print('trajs vis%d' % K, trajs.shape)
+
+        # ensure that the per-frame motion isn't too crazy
+        mot = np.max(np.linalg.norm(trajs[1:] - trajs[:-1], axis=-1), axis=0) # N
+        mot_ok = mot < 512
+        trajs = trajs[:,mot_ok]
+        visibs = visibs[:,mot_ok]
+        valids = valids[:,mot_ok]
+        print('trajs mot', trajs.shape)
         
         N = trajs.shape[1]
-        
-        if N < self.N:
-            print('N=%d; ideally we want N=%d, but we will pad' % (N, self.N))
+
+        assert(N > 0) # otw somehow all trajs got filtered out
 
         # we won't supervise with the extremes, but let's clamp anyway just to be safe
         trajs = np.minimum(np.maximum(trajs, np.array([-32,-32])), np.array([W+32, H+32])) # S,N,2
@@ -146,19 +160,13 @@ class PointOdysseyDataset(torch.utils.data.Dataset):
         # inds = np.random.choice(N, N_, replace=False)
         inds = np.linspace(0, N-1, N_).astype(np.int32)
 
-        # prep for batching, by fixing N
-        trajs_full = np.zeros((S, self.N, 2)).astype(np.float32)
-        visibs_full = np.zeros((S, self.N)).astype(np.float32)
-        valids_full = np.zeros((S, self.N)).astype(np.float32)
+        trajs = trajs[:,inds]
+        visibs = visibs[:,inds]
+        valids = valids[:,inds]
 
-        trajs_full[:,:N_] = trajs[:,inds]
-        visibs_full[:,:N_] = visibs[:,inds]
-        valids_full[:,:N_] = valids[:,inds]
-
-        # rgbs = torch.from_numpy(np.stack(rgbs, 0)).permute(0,3,1,2)  # S, C, H, W
-        trajs = torch.from_numpy(trajs_full)  # S, N, 2
-        visibs = torch.from_numpy(visibs_full)  # S, N
-        valids = torch.from_numpy(valids_full)  # S, N
+        trajs = torch.from_numpy(trajs)  # S, N, 2
+        visibs = torch.from_numpy(visibs)  # S, N
+        valids = torch.from_numpy(valids)  # S, N
 
         sample = {
             'seq': seq,
