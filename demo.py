@@ -89,7 +89,7 @@ def main(
     # autogen a name
     model_name = "%s_%d_%d_%s" % (name, S, N, exp_name)
     import datetime
-    model_date = datetime.datetime.now().strftime('%H:%M:%S')
+    model_date = datetime.datetime.now().strftime('%H_%M_%S')
     model_name = model_name + '_' + model_date
     print('model_name', model_name)
     
